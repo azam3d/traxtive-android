@@ -27,7 +27,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -65,7 +64,7 @@ data class Motorcycle(
     val userId: String? = null
 )
 
-class MainActivity : ComponentActivity() {
+class MotorcyclesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -73,12 +72,6 @@ class MainActivity : ComponentActivity() {
             TraxtiveTheme {
                 val name = remember { mutableStateOf("email") }
 
-//                Scaffold(
-//                    modifier = Modifier.fillMaxSize(),
-////                    containerColor = MaterialTheme.colorScheme.background
-//                ) { innerPadding ->
-//                    PagerAnimateToItem(name = name.value, modifier = Modifier.padding(innerPadding))
-//                }
                 PagerAnimateToItem(name = name.value)
 
                 val database = Firebase.database
@@ -235,12 +228,6 @@ fun PagerAnimateToItem(name: String) {
 fun PagerPreview() {
     TraxtiveTheme {
         PagerAnimateToItem(name = "sss")
-//        Scaffold(
-//            modifier = Modifier.fillMaxSize(),
-//            containerColor = MaterialTheme.colorScheme.background
-//        ) { innerPadding ->
-//
-//        }
     }
 }
 
