@@ -145,36 +145,16 @@ fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiv
 //        }
 //    })
 
-    val profileRef = database.getReference("userProfile")
-    val userRef3 = profileRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
-
-    userRef3.addValueEventListener(object : ValueEventListener {
-        override fun onDataChange(snapshot: DataSnapshot) {
-            for (motorcycleSnapshot in snapshot.children) {
-                    val serviceUpdate = motorcycleSnapshot.getValue(Profile::class.java)
-                    serviceUpdate?.let {
-                        Log.d("Firebase", "Motorcycle: $it")
-                    }
-            }
-        }
-
-        override fun onCancelled(error: DatabaseError) {
-            Log.w("Firebase", "Failed to read value.", error.toException())
-        }
-    })
-
-//    val servicesRef = database.getReference("services")
-//    val userRef4 = servicesRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
+//    val profileRef = database.getReference("userProfile")
+//    val userRef3 = profileRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
 //
-//    userRef4.addValueEventListener(object : ValueEventListener {
+//    userRef3.addValueEventListener(object : ValueEventListener {
 //        override fun onDataChange(snapshot: DataSnapshot) {
 //            for (motorcycleSnapshot in snapshot.children) {
-//                for (motorcycleSnapshot2 in motorcycleSnapshot.children) {
-//                    val serviceUpdate = motorcycleSnapshot2.getValue(Service::class.java)
+//                    val serviceUpdate = motorcycleSnapshot.getValue(Profile::class.java)
 //                    serviceUpdate?.let {
 //                        Log.d("Firebase", "Motorcycle: $it")
 //                    }
-//                }
 //            }
 //        }
 //
@@ -182,6 +162,26 @@ fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiv
 //            Log.w("Firebase", "Failed to read value.", error.toException())
 //        }
 //    })
+
+    val servicesRef = database.getReference("services")
+    val userRef4 = servicesRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
+
+    userRef4.addValueEventListener(object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            for (motorcycleSnapshot in snapshot.children) {
+                for (motorcycleSnapshot2 in motorcycleSnapshot.children) {
+                    val serviceUpdate = motorcycleSnapshot2.getValue(Service::class.java)
+                    serviceUpdate?.let {
+                        Log.d("Firebase", "Motorcycle: $it")
+                    }
+                }
+            }
+        }
+
+        override fun onCancelled(error: DatabaseError) {
+            Log.w("Firebase", "Failed to read value.", error.toException())
+        }
+    })
 }
 
 @Composable
