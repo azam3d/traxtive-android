@@ -11,25 +11,33 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,6 +56,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.MutableLiveData
+import coil.compose.AsyncImage
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.traxtivemotor.ui.theme.TraxtiveTheme
 import kotlinx.coroutines.launch
@@ -56,75 +67,156 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.ktx.database
 
-data class Motorcycle(
-    val brand: String? = null,
-    val imageUrl: String? = null,
-    val model: String? = null,
-    val plateNumber: String? = null,
-    val userId: String? = null
-)
-
 class MotorcyclesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+//        parseJson(baseContext,"traxtive-motor.json")
+
         enableEdgeToEdge()
         setContent {
             TraxtiveTheme {
                 val name = remember { mutableStateOf("email") }
+                val motorcyclesLiveData = remember { MutableLiveData<List<Motorcycle>>() }
 
-                PagerAnimateToItem(name = name.value)
+                fetchFirebaseData(name, motorcyclesLiveData)
 
-                val database = Firebase.database
-                val myRef = database.getReference("motorcycles")
-
-                myRef.addValueEventListener(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
-                        for (userSnapshot in snapshot.children) {
-                            for (motorcycleSnapshot in userSnapshot.children) {
-                                val motorcycle = motorcycleSnapshot.getValue(Motorcycle::class.java)
-                                motorcycle?.let {
-                                    Log.d("Firebase", "Motorcycle: ${it.brand}")
-                                    name.value = it.brand ?: "Unknown"
-                                }
-                                return
-                            }
-                        }
-                    }
-
-                    override fun onCancelled(error: DatabaseError) {
-                        Log.w("Firebase", "Failed to read value.", error.toException())
-                    }
-                })
+//                PagerAnimateToItem(name = name.value, motorcycles = motorcyclesLiveData)
             }
         }
     }
 }
 
+fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiveData<List<Motorcycle>>) {
+    val database = Firebase.database
+//    val userId = Firebase.auth.currentUser?.uid
+    val motorcycleRef = database.getReference("motorcycles")
+//    val userRef = motorcycleRef.child(userId!!)
+//    Log.d("Firebase", "userId: $userRef")
+
+//    userRef.addValueEventListener(object : ValueEventListener {
+//        override fun onDataChange(snapshot: DataSnapshot) {
+//            val motorcycles2 = mutableListOf<Motorcycle>()
+//
+//            for (motorcycleSnapshot in snapshot.children) {
+//                val motorcycles = motorcycleSnapshot.getValue(Motorcycle::class.java)
+//                motorcycles?.let {
+//                    Log.d("Firebase", "Motorcycle: $it")
+////                    name.value = it.brand ?: "Unknown"
+//                    motorcycles2.add(it)
+//                }
+//            }
+//            motorcycleLiveData.value = motorcycles2
+//            Log.d("Firebase", "Motorcycles: $motorcycles2")
+//        }
+//
+//        override fun onCancelled(error: DatabaseError) {
+//            Log.w("Firebase", "Failed to read value.", error.toException())
+//        }
+//    })
+
+    // Add motorcycle
+//    val motorcycle = Motorcycle("Yamaha", "https://i.ibb.co/tQZThN2/yamaha.png", "Meow", "KWC123", userId)
+//    if (userId != null) {
+//        database.reference.child("motorcycles").child(userId).push().setValue(motorcycle)
+//    }
+
+    // Add serviceUpdate
+//    val serviceUpdate = ServiceUpdate()
+//    database.reference.child("serviceUpdate").child(userId).child(userId).push().setValue(serviceUpdate)
+
+//    val serviceUpdateRef = database.getReference("serviceUpdate")
+//    val userRef2 = serviceUpdateRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
+//
+//    userRef2.addValueEventListener(object : ValueEventListener {
+//        override fun onDataChange(snapshot: DataSnapshot) {
+//            for (motorcycleSnapshot in snapshot.children) {
+//                for (motorcycleSnapshot2 in motorcycleSnapshot.children) {
+//                    val serviceUpdate = motorcycleSnapshot2.getValue(ServiceUpdate::class.java)
+//                    serviceUpdate?.let {
+//                        Log.d("Firebase", "Motorcycle: $it")
+//                    }
+//                }
+//            }
+//        }
+//
+//        override fun onCancelled(error: DatabaseError) {
+//            Log.w("Firebase", "Failed to read value.", error.toException())
+//        }
+//    })
+
+    val profileRef = database.getReference("userProfile")
+    val userRef3 = profileRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
+
+    userRef3.addValueEventListener(object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            for (motorcycleSnapshot in snapshot.children) {
+                    val serviceUpdate = motorcycleSnapshot.getValue(Profile::class.java)
+                    serviceUpdate?.let {
+                        Log.d("Firebase", "Motorcycle: $it")
+                    }
+            }
+        }
+
+        override fun onCancelled(error: DatabaseError) {
+            Log.w("Firebase", "Failed to read value.", error.toException())
+        }
+    })
+
+//    val servicesRef = database.getReference("services")
+//    val userRef4 = servicesRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
+//
+//    userRef4.addValueEventListener(object : ValueEventListener {
+//        override fun onDataChange(snapshot: DataSnapshot) {
+//            for (motorcycleSnapshot in snapshot.children) {
+//                for (motorcycleSnapshot2 in motorcycleSnapshot.children) {
+//                    val serviceUpdate = motorcycleSnapshot2.getValue(Service::class.java)
+//                    serviceUpdate?.let {
+//                        Log.d("Firebase", "Motorcycle: $it")
+//                    }
+//                }
+//            }
+//        }
+//
+//        override fun onCancelled(error: DatabaseError) {
+//            Log.w("Firebase", "Failed to read value.", error.toException())
+//        }
+//    })
+}
+
 @Composable
-fun PagerAnimateToItem(name: String) {
+fun PagerAnimateToItem(name: String, motorcycles: MutableLiveData<List<Motorcycle>>) {
     val mContext = LocalContext.current
+    val motorcyclesList by motorcycles.observeAsState()
+    val motor = motorcyclesList ?: return
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 32.dp, bottom = 16.dp)
+            .padding(top = 150.dp, bottom = 50.dp)
             .background(Color.Transparent)
     ) {
-        val pagerState = rememberPagerState(pageCount = { locations.count() })
+        val pagerState = rememberPagerState(pageCount = { motor.size })
 
         Column {
             HorizontalPager(
                 state = pagerState,
-                beyondViewportPageCount = 2,
+                beyondViewportPageCount = 3,
+                contentPadding = PaddingValues(horizontal = 64.dp),
+//                itemSpacing = (-32.dp),
                 modifier = Modifier
-                    .weight(0.7f)
+                    .weight(0.5f)
                     .background(Color.Transparent)
                     .fillMaxSize()
+                    .border(
+                        width = 2.dp,
+                        color = Color.Blue,
+                    )
             ) { page ->
                 Box(
                     modifier = Modifier
                         .zIndex(page * 2f)
-                        .padding(start = 64.dp, end = 32.dp)
+//                        .padding(start = 64.dp, end = 64.dp)
                         .graphicsLayer {
                             val startOffset = pagerState.startOffsetForPage(page)
                             translationX = size.width * (startOffset * .85f)
@@ -143,9 +235,14 @@ fun PagerAnimateToItem(name: String) {
                             scaleY = scale
                         }
                         .clip(RoundedCornerShape(16.dp)) // must be the last modifier
+                        .width(200.dp)
+                        .border(
+                            width = 2.dp,
+                            color = Color.Blue,
+                        )
                         .clickable {
                             Log.d("Pager", "Clicked on page $page")
-                            mContext.startActivity(Intent(mContext, SignIn::class.java))
+                            mContext.startActivity(Intent(mContext, ServiceDetails::class.java))
                         }
                 ) {
                     Image(
@@ -155,13 +252,27 @@ fun PagerAnimateToItem(name: String) {
                         modifier = Modifier
                             .fillMaxSize()
                     )
+
+                    motor[page].imageUrl?.let {
+                        Box(
+                            modifier = Modifier
+                                .size(200.dp)
+                                .border(
+                                    width = 1.dp,
+                                    color = Color.LightGray,
+                                    shape = CircleShape
+                                )
+                                .clip(CircleShape)
+                        ) {
+                            BikeImage(imageUrl = it)
+                        }
+                    }
                 }
 
             }
             Row(modifier = Modifier
                 .weight(0.3f)
                 .padding(horizontal = 16.dp)
-//                .fillMaxWidth()
                 .height(86.dp),
             ) {
                 val verticalState = rememberPagerState(pageCount = {
@@ -179,9 +290,15 @@ fun PagerAnimateToItem(name: String) {
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontWeight = FontWeight.Thin,
                                 fontSize = 28.sp
-                            )
+                            ),
+                            modifier = Modifier.clickable {
+                                Log.d("Firebase", "Clicked")
+                                mContext.startActivity(Intent(mContext, AddNewService::class.java))
+                            }
                         )
+
                         Spacer(modifier = Modifier.height(8.dp))
+
                         Text(
                             text = locations[page].subtitle,
                             style = MaterialTheme.typography.bodyLarge.copy(
@@ -189,14 +306,18 @@ fun PagerAnimateToItem(name: String) {
                                 fontSize = 14.sp
                             )
                         )
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = name,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+
+                        motorcyclesList?.get(page)?.brand?.let { brand ->
+                            Text(
+                                text = brand,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
                             )
-                        )
+                        }
                     }
                 }
                 LaunchedEffect(Unit) {
@@ -223,11 +344,21 @@ fun PagerAnimateToItem(name: String) {
     }
 }
 
+@Composable
+fun BikeImage(imageUrl: String) {
+    AsyncImage(
+        model = imageUrl,
+        contentDescription = "Bike Image",
+        modifier = Modifier.size(200.dp),
+        contentScale = ContentScale.Fit
+    )
+}
+
 @Preview(showBackground = true)
 @Composable
 fun PagerPreview() {
     TraxtiveTheme {
-        PagerAnimateToItem(name = "sss")
+        PagerAnimateToItem(name = "sss", motorcycles = MutableLiveData())
     }
 }
 
