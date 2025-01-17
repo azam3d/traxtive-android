@@ -58,20 +58,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.MutableLiveData
 import coil.compose.AsyncImage
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
-import com.traxtivemotor.ui.theme.TraxtiveTheme
-import kotlinx.coroutines.launch
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
+import com.traxtivemotor.ui.theme.TraxtiveTheme
+import kotlinx.coroutines.launch
 
 class MotorcyclesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-//        parseJson(baseContext,"traxtive-motor.json")
+        parseJson(baseContext,"traxtive-motor.json")
 
         enableEdgeToEdge()
         setContent {
@@ -90,10 +89,11 @@ class MotorcyclesActivity : ComponentActivity() {
 fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiveData<List<Motorcycle>>) {
     val database = Firebase.database
 //    val userId = Firebase.auth.currentUser?.uid
-    val motorcycleRef = database.getReference("motorcycles")
+    val motorcycleRef = database.getReference("motorcycles-v2")
 //    val userRef = motorcycleRef.child(userId!!)
+//    val userRef = motorcycleRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
 //    Log.d("Firebase", "userId: $userRef")
-
+//
 //    userRef.addValueEventListener(object : ValueEventListener {
 //        override fun onDataChange(snapshot: DataSnapshot) {
 //            val motorcycles2 = mutableListOf<Motorcycle>()
@@ -121,21 +121,15 @@ fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiv
 //        database.reference.child("motorcycles").child(userId).push().setValue(motorcycle)
 //    }
 
-    // Add serviceUpdate
-//    val serviceUpdate = ServiceUpdate()
-//    database.reference.child("serviceUpdate").child(userId).child(userId).push().setValue(serviceUpdate)
-
-//    val serviceUpdateRef = database.getReference("serviceUpdate")
+//    val serviceUpdateRef = database.getReference("serviceUpdate-v2")
 //    val userRef2 = serviceUpdateRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
 //
 //    userRef2.addValueEventListener(object : ValueEventListener {
 //        override fun onDataChange(snapshot: DataSnapshot) {
 //            for (motorcycleSnapshot in snapshot.children) {
-//                for (motorcycleSnapshot2 in motorcycleSnapshot.children) {
-//                    val serviceUpdate = motorcycleSnapshot2.getValue(ServiceUpdate::class.java)
-//                    serviceUpdate?.let {
-//                        Log.d("Firebase", "Motorcycle: $it")
-//                    }
+//                val serviceUpdate = motorcycleSnapshot.getValue(ServiceUpdate::class.java)
+//                serviceUpdate?.let {
+//                    Log.d("Firebase", "Service update: $it")
 //                }
 //            }
 //        }
@@ -145,16 +139,14 @@ fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiv
 //        }
 //    })
 
-//    val profileRef = database.getReference("userProfile")
+//    val profileRef = database.getReference("userProfile-v2")
 //    val userRef3 = profileRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
 //
 //    userRef3.addValueEventListener(object : ValueEventListener {
 //        override fun onDataChange(snapshot: DataSnapshot) {
-//            for (motorcycleSnapshot in snapshot.children) {
-//                    val serviceUpdate = motorcycleSnapshot.getValue(Profile::class.java)
-//                    serviceUpdate?.let {
-//                        Log.d("Firebase", "Motorcycle: $it")
-//                    }
+//            val serviceUpdate = snapshot.getValue(Profile::class.java)
+//            serviceUpdate?.let {
+//                Log.d("Firebase", "Profile: $it")
 //            }
 //        }
 //
@@ -163,25 +155,35 @@ fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiv
 //        }
 //    })
 
-    val servicesRef = database.getReference("services")
-    val userRef4 = servicesRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
-
-    userRef4.addValueEventListener(object : ValueEventListener {
-        override fun onDataChange(snapshot: DataSnapshot) {
-            for (motorcycleSnapshot in snapshot.children) {
-                for (motorcycleSnapshot2 in motorcycleSnapshot.children) {
-                    val serviceUpdate = motorcycleSnapshot2.getValue(Service::class.java)
-                    serviceUpdate?.let {
-                        Log.d("Firebase", "Motorcycle: $it")
-                    }
-                }
-            }
-        }
-
-        override fun onCancelled(error: DatabaseError) {
-            Log.w("Firebase", "Failed to read value.", error.toException())
-        }
-    })
+//    val servicesRef = database.getReference("services-v2")
+//    val userRef4 = servicesRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
+//
+//    userRef4.addValueEventListener(object : ValueEventListener {
+//        override fun onDataChange(snapshot: DataSnapshot) {
+//            for (motorcycleSnapshot in snapshot.children) {
+//                for (serviceSnapshot in motorcycleSnapshot.children) {
+//                    println("\n\n\n")
+//
+//                    val serviceUpdate = serviceSnapshot.getValue(Service2::class.java)
+//                    serviceUpdate?.let {
+//                        println("- service: $it")
+////                        Log.d("Firebase", "Motorcycle: $it")
+//                    }
+//                    for (itemSnapshot in serviceSnapshot.child("items").children) {
+//                        val item = itemSnapshot.getValue(Item::class.java)
+//                        item?.let {
+//                            println("- item: $it")
+//                        }
+//                    }
+//                    println("\n\n\n")
+//                }
+//            }
+//        }
+//
+//        override fun onCancelled(error: DatabaseError) {
+//            Log.w("Firebase", "Failed to read value.", error.toException())
+//        }
+//    })
 }
 
 @Composable
@@ -270,10 +272,11 @@ fun PagerAnimateToItem(name: String, motorcycles: MutableLiveData<List<Motorcycl
                 }
 
             }
-            Row(modifier = Modifier
-                .weight(0.3f)
-                .padding(horizontal = 16.dp)
-                .height(86.dp),
+            Row(
+                modifier = Modifier
+                    .weight(0.3f)
+                    .padding(horizontal = 16.dp)
+                    .height(86.dp),
             ) {
                 val verticalState = rememberPagerState(pageCount = {
                     locations.count()
