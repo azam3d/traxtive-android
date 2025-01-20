@@ -1,6 +1,7 @@
 package com.traxtivemotor
 
 import android.content.Intent
+import android.graphics.Paint.Align
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
@@ -13,6 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +34,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,17 +44,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -58,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.MutableLiveData
 import coil.compose.AsyncImage
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -70,7 +74,7 @@ class MotorcyclesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        parseJson(baseContext,"traxtive-motor.json")
+//        parseJson(baseContext,"traxtive-motor.json")
 
         enableEdgeToEdge()
         setContent {
@@ -80,7 +84,7 @@ class MotorcyclesActivity : ComponentActivity() {
 
                 fetchFirebaseData(name, motorcyclesLiveData)
 
-//                PagerAnimateToItem(name = name.value, motorcycles = motorcyclesLiveData)
+                PagerAnimateToItem(motorcycles = motorcyclesLiveData)
             }
         }
     }
@@ -88,32 +92,32 @@ class MotorcyclesActivity : ComponentActivity() {
 
 fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiveData<List<Motorcycle>>) {
     val database = Firebase.database
-//    val userId = Firebase.auth.currentUser?.uid
-    val motorcycleRef = database.getReference("motorcycles-v2")
-//    val userRef = motorcycleRef.child(userId!!)
+    val userId = Firebase.auth.currentUser?.uid
+    val motorcycleRef = database.getReference("motorcycles")
+    val userRef = motorcycleRef.child(userId!!)
 //    val userRef = motorcycleRef.child("000hoj3BEpgrvUIDwg7xhAr1vUu1")
 //    Log.d("Firebase", "userId: $userRef")
 //
-//    userRef.addValueEventListener(object : ValueEventListener {
-//        override fun onDataChange(snapshot: DataSnapshot) {
-//            val motorcycles2 = mutableListOf<Motorcycle>()
-//
-//            for (motorcycleSnapshot in snapshot.children) {
-//                val motorcycles = motorcycleSnapshot.getValue(Motorcycle::class.java)
-//                motorcycles?.let {
-//                    Log.d("Firebase", "Motorcycle: $it")
-////                    name.value = it.brand ?: "Unknown"
-//                    motorcycles2.add(it)
-//                }
-//            }
-//            motorcycleLiveData.value = motorcycles2
-//            Log.d("Firebase", "Motorcycles: $motorcycles2")
-//        }
-//
-//        override fun onCancelled(error: DatabaseError) {
-//            Log.w("Firebase", "Failed to read value.", error.toException())
-//        }
-//    })
+    userRef.addValueEventListener(object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            val motorcycles2 = mutableListOf<Motorcycle>()
+
+            for (motorcycleSnapshot in snapshot.children) {
+                val motorcycles = motorcycleSnapshot.getValue(Motorcycle::class.java)
+                motorcycles?.let {
+                    Log.d("Firebase", "Motorcycle: $it")
+//                    name.value = it.brand ?: "Unknown"
+                    motorcycles2.add(it)
+                }
+            }
+            motorcycleLiveData.value = motorcycles2
+            Log.d("Firebase", "Motorcycles: $motorcycles2")
+        }
+
+        override fun onCancelled(error: DatabaseError) {
+            Log.w("Firebase", "Failed to read value.", error.toException())
+        }
+    })
 
     // Add motorcycle
 //    val motorcycle = Motorcycle("Yamaha", "https://i.ibb.co/tQZThN2/yamaha.png", "Meow", "KWC123", userId)
@@ -187,7 +191,7 @@ fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiv
 }
 
 @Composable
-fun PagerAnimateToItem(name: String, motorcycles: MutableLiveData<List<Motorcycle>>) {
+fun PagerAnimateToItem(motorcycles: MutableLiveData<List<Motorcycle>>) {
     val mContext = LocalContext.current
     val motorcyclesList by motorcycles.observeAsState()
     val motor = motorcyclesList ?: return
@@ -195,129 +199,147 @@ fun PagerAnimateToItem(name: String, motorcycles: MutableLiveData<List<Motorcycl
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 150.dp, bottom = 50.dp)
+            .padding(bottom = 50.dp)
             .background(Color.Transparent)
     ) {
         val pagerState = rememberPagerState(pageCount = { motor.size })
+        val colorStops = arrayOf(
+            0.0f to Color(0, 200, 255, 255),
+            0.2f to Color(104, 54, 255, 255),
+            1f to Color(253, 106, 255, 255),
+        )
 
         Column {
-            HorizontalPager(
-                state = pagerState,
-                beyondViewportPageCount = 3,
-                contentPadding = PaddingValues(horizontal = 64.dp),
-//                itemSpacing = (-32.dp),
+            Box(
                 modifier = Modifier
+                    .background(Brush.horizontalGradient(colorStops = colorStops))
                     .weight(0.5f)
-                    .background(Color.Transparent)
-                    .fillMaxSize()
-                    .border(
-                        width = 2.dp,
-                        color = Color.Blue,
+            ) {
+                Column {
+                    Text(
+                        text = "My Motorcycles",
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 28.sp
+                        ),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                        .padding(top = 60.dp)
                     )
-            ) { page ->
-                Box(
-                    modifier = Modifier
-                        .zIndex(page * 2f)
-//                        .padding(start = 64.dp, end = 64.dp)
-                        .graphicsLayer {
-                            val startOffset = pagerState.startOffsetForPage(page)
-                            translationX = size.width * (startOffset * .85f)
-
-                            val blur = (startOffset * 20).coerceAtLeast(.1f)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                renderEffect = RenderEffect
-                                    .createBlurEffect(
-                                        blur, blur, Shader.TileMode.DECAL
-                                    )
-                                    .asComposeRenderEffect()
-                            }
-
-                            val scale = 1f - (startOffset * .1f)
-                            scaleX = scale
-                            scaleY = scale
-                        }
-                        .clip(RoundedCornerShape(16.dp)) // must be the last modifier
-                        .width(200.dp)
-                        .border(
-                            width = 2.dp,
-                            color = Color.Blue,
-                        )
-                        .clickable {
-                            Log.d("Pager", "Clicked on page $page")
-                            mContext.startActivity(Intent(mContext, ServiceDetails::class.java))
-                        }
-                ) {
-                    Image(
-                        painter = painterResource(id = locations[page].image),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
+                    HorizontalPager(
+                        state = pagerState,
+                        beyondViewportPageCount = 3,
+                        contentPadding = PaddingValues(horizontal = 64.dp),
                         modifier = Modifier
+                            .background(Color.Blue)
                             .fillMaxSize()
-                    )
-
-                    motor[page].imageUrl?.let {
+                            .background(Brush.horizontalGradient(colorStops = colorStops))
+                    ) { page ->
                         Box(
                             modifier = Modifier
-                                .size(200.dp)
-                                .border(
-                                    width = 1.dp,
-                                    color = Color.LightGray,
-                                    shape = CircleShape
-                                )
-                                .clip(CircleShape)
+                                .zIndex(page * 2f)
+                                .graphicsLayer {
+                                    val startOffset = pagerState.startOffsetForPage(page)
+                                    translationX = size.width * (startOffset * .85f)
+
+                                    val blur = (startOffset * 20).coerceAtLeast(.1f)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        renderEffect = RenderEffect
+                                            .createBlurEffect(
+                                                blur, blur, Shader.TileMode.DECAL
+                                            )
+                                            .asComposeRenderEffect()
+                                    }
+
+                                    val scale = 1f - (startOffset * .1f)
+                                    scaleX = scale
+                                    scaleY = scale
+                                }
+                                .clip(RoundedCornerShape(16.dp)) // must be the last modifier
+                                .fillMaxWidth()
+//                        .border(
+//                            width = 2.dp,
+//                            color = Color.Red,
+//                        )
+                                .clickable {
+                                    Log.d("Pager", "Clicked on page $page")
+                                    mContext.startActivity(
+                                        Intent(
+                                            mContext,
+                                            ServiceDetails::class.java
+                                        )
+                                    )
+                                },
                         ) {
-                            BikeImage(imageUrl = it)
+                            motor[page].imageUrl?.let {
+                                Box(
+                                    modifier = Modifier
+                                        .size(200.dp)
+                                        .border(
+                                            width = 1.dp,
+                                            color = Color.LightGray,
+                                            shape = CircleShape
+                                        )
+                                        .clip(CircleShape)
+                                        .align(Alignment.Center)
+                                ) {
+                                    BikeImage(imageUrl = it)
+                                }
+                            }
                         }
+
                     }
                 }
-
             }
             Row(
                 modifier = Modifier
                     .weight(0.3f)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
                     .height(86.dp),
             ) {
                 val verticalState = rememberPagerState(pageCount = {
-                    locations.count()
+                    motor.size
                 })
                 VerticalPager(
                     state = verticalState, modifier = Modifier
-                        .weight(1f)
-                        .height(86.dp),
+                        .weight(1f),
+//                        .border(
+//                            width = 2.dp,
+//                            color = Color.Red,
+//                        ),
                     userScrollEnabled = false, horizontalAlignment = Alignment.Start
                 ) { page ->
-                    Column(verticalArrangement = Arrangement.Center) {
-                        Text(
-                            text = locations[page].title,
-                            style = MaterialTheme.typography.headlineLarge.copy(
-                                fontWeight = FontWeight.Thin,
-                                fontSize = 28.sp
-                            ),
-                            modifier = Modifier.clickable {
-                                Log.d("Firebase", "Clicked")
-                                mContext.startActivity(Intent(mContext, AddNewService::class.java))
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = locations[page].subtitle,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        motorcyclesList?.get(page)?.brand?.let { brand ->
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        motorcyclesList?.get(page)?.let { brand ->
                             Text(
-                                text = brand,
+                                text = brand.brand!!,
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontWeight = FontWeight.Thin,
+                                    fontSize = 32.sp
+                                ),
+                                modifier = Modifier.clickable {
+                                    Log.d("Firebase", "Clicked")
+                                    mContext.startActivity(Intent(mContext, MotorDetails::class.java))
+                                }
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = brand.model!!,
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
+                                    fontSize = 24.sp
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = brand.plateNumber!!,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 24.sp
                                 )
                             )
                         }
@@ -336,13 +358,11 @@ fun PagerAnimateToItem(name: String, motorcycles: MutableLiveData<List<Motorcycl
             }
         }
 
-        val coroutineScope = rememberCoroutineScope()
         Button(onClick = {
-            coroutineScope.launch {
-                pagerState.animateScrollToPage(5)
-            }
-        }, modifier = Modifier.align(Alignment.BottomCenter)) {
-            Text("Jump to Page 5")
+            mContext.startActivity(Intent(mContext, ServiceDetails::class.java))
+        }, modifier = Modifier.align(Alignment.BottomCenter),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Green)) {
+            Text("+ Add Motorcycle")
         }
     }
 }
@@ -361,7 +381,7 @@ fun BikeImage(imageUrl: String) {
 @Composable
 fun PagerPreview() {
     TraxtiveTheme {
-        PagerAnimateToItem(name = "sss", motorcycles = MutableLiveData())
+        PagerAnimateToItem(motorcycles = MutableLiveData())
     }
 }
 
