@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,9 +37,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.MutableLiveData
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
@@ -111,6 +115,7 @@ fun fetchFirebaseData(servicesLiveData: MutableLiveData<List<Service>>) {
 
 @Composable
 fun AllServices(servicesLiveData: MutableLiveData<List<Service>>) {
+    val mContext = LocalContext.current
     val services by servicesLiveData.observeAsState(initial = emptyList())
 
     Column(modifier = Modifier.fillMaxWidth()
@@ -129,11 +134,15 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>) {
         Box(
             modifier = Modifier
                 .padding(16.dp)
-                .background(Color.White)
                 .clip(RoundedCornerShape(16.dp))
+                .background(Color.White)
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
+                    .clickable {
+                        Log.d("Firebase", "Clicked")
+                        mContext.startActivity(Intent(mContext, ServiceDetails::class.java))
+                    },
                 contentPadding = PaddingValues(16.dp)
             ) {
                 item {
@@ -168,11 +177,16 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>) {
         ) {
             Button(onClick = {
 //                Add New Service
-            }, colors = ButtonDefaults.buttonColors(containerColor = Color.Green)) {
+            }, modifier = Modifier
+                .padding(top = 24.dp)
+                .size(width = 240.dp, height = 48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(26, 213, 255, 255))) {
                 Text("+ Add New Service")
             }
 
             TextButton(
+                modifier = Modifier.padding(top = 8.dp)
+                    .size(width = 240.dp, height = 48.dp),
                 onClick = {
 //                Delete Motorcycle
                 },
@@ -189,36 +203,28 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>) {
 
 @Composable
 fun PlantCard(date: String, workshop: String, mileage: String) {
-//    Card(
-//        modifier = Modifier.padding(10.dp)
-//            .fillMaxWidth()
-//            .wrapContentHeight(),
-//            colors = CardDefaults.cardColors(
-//                containerColor = Color.White,
-//            ),
-//    ) {
-        Row(
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(Modifier.padding(8.dp)) {
-                Text(
-                    text = date,
-                    style = MaterialTheme.typography.bodySmall,
-//                    color = MaterialTheme.colors.onSurface,
-                )
-                Text(
-                    text = workshop,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                    )
-                )
-            }
+    Row(modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(Modifier.padding(8.dp)) {
             Text(
-                text = mileage,
-                Modifier.padding(8.dp)
-//                    .align(Alignment.End)
+                text = date,
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            Text(
+                text = workshop,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                )
             )
         }
-    HorizontalDivider(thickness = 1.dp)
-//    }
+        Text(
+            text = mileage,
+            modifier = Modifier
+                .padding(8.dp)
+        )
+    }
+    HorizontalDivider(thickness = 1.dp, color = Color(230, 239, 252, 255))
 }

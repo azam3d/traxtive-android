@@ -360,8 +360,11 @@ fun PagerAnimateToItem(motorcycles: MutableLiveData<List<Motorcycle>>) {
 
         Button(onClick = {
             mContext.startActivity(Intent(mContext, ServiceDetails::class.java))
-        }, modifier = Modifier.align(Alignment.BottomCenter),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Green)) {
+        }, modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .size(width = 240.dp, height = 48.dp
+            ),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(26, 213, 255, 255))) {
             Text("+ Add Motorcycle")
         }
     }
