@@ -1,5 +1,6 @@
 package com.traxtivemotor
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Paint.Align
 import android.graphics.RenderEffect
@@ -33,10 +34,19 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -44,6 +54,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,10 +93,22 @@ class MotorcyclesActivity : ComponentActivity() {
             TraxtiveTheme {
                 val name = remember { mutableStateOf("email") }
                 val motorcyclesLiveData = remember { MutableLiveData<List<Motorcycle>>() }
+                var showBottomSheet by remember { mutableStateOf(false) }
 
                 fetchFirebaseData(name, motorcyclesLiveData)
 
-                PagerAnimateToItem(motorcycles = motorcyclesLiveData)
+                PagerAnimateToItem(motorcycles = motorcyclesLiveData,
+                    onShowBottomSheetChange = { newValue ->
+                        showBottomSheet = newValue
+                    }
+                )
+
+                BottomSheet(
+                    showBottomSheet,
+                    onShowBottomSheetChange = { newValue ->
+                        showBottomSheet = newValue
+                    }
+                )
             }
         }
     }
@@ -191,7 +215,7 @@ fun fetchFirebaseData(name: MutableState<String>, motorcycleLiveData: MutableLiv
 }
 
 @Composable
-fun PagerAnimateToItem(motorcycles: MutableLiveData<List<Motorcycle>>) {
+fun PagerAnimateToItem(motorcycles: MutableLiveData<List<Motorcycle>>, onShowBottomSheetChange: (Boolean) -> Unit) {
     val mContext = LocalContext.current
     val motorcyclesList by motorcycles.observeAsState()
     val motor = motorcyclesList ?: return
@@ -359,7 +383,8 @@ fun PagerAnimateToItem(motorcycles: MutableLiveData<List<Motorcycle>>) {
         }
 
         Button(onClick = {
-            mContext.startActivity(Intent(mContext, ServiceDetails::class.java))
+            onShowBottomSheetChange(true)
+//            mContext.startActivity(Intent(mContext, ServiceDetails::class.java))
         }, modifier = Modifier
             .align(Alignment.BottomCenter)
             .size(width = 240.dp, height = 48.dp
@@ -380,14 +405,66 @@ fun BikeImage(imageUrl: String) {
     )
 }
 
-@Preview(showBackground = true)
-@Composable
-fun PagerPreview() {
-    TraxtiveTheme {
-        PagerAnimateToItem(motorcycles = MutableLiveData())
-    }
-}
-
 fun PagerState.offsetForPage(page: Int) = (currentPage - page) + currentPageOffsetFraction
 
 fun PagerState.startOffsetForPage(page: Int) = offsetForPage(page).coerceAtLeast(0f)
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BottomSheet(showBottomSheet: Boolean, onShowBottomSheetChange: (Boolean) -> Unit) {
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+    var text by remember { mutableStateOf("") }
+
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            modifier = Modifier.padding(16.dp),
+            containerColor = Color.White,
+            onDismissRequest = {
+                onShowBottomSheetChange(false)
+            },
+            sheetState = sheetState
+        ) {
+            Text(
+                text = "Add Motorcycle",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp
+                )
+            )
+
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Brand") }
+            )
+
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Model") }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Plate Number") },
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(onClick = {
+                scope.launch { sheetState.hide() }.invokeOnCompletion {
+                    if (!sheetState.isVisible) {
+                        onShowBottomSheetChange(false)
+                    }
+                }
+            }) {
+                Text("Hide bottom sheet")
+            }
+        }
+    }
+}
