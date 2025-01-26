@@ -1,14 +1,27 @@
 package com.traxtivemotor
 
 import android.content.Context
+import android.os.Parcelable
 import android.util.Log
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import com.google.gson.Gson
+import kotlinx.parcelize.Parcelize
+import java.io.Serializable
 
+@Parcelize
 data class Motorcycle(
+    val motorId: String? = null,
+    val brand: String? = null,
+    val imageUrl: String? = null,
+    val model: String? = null,
+    val plateNumber: String? = null,
+    val userId: String? = null
+) : Parcelable
+
+data class Motorcycle2(
     val brand: String? = null,
     val imageUrl: String? = null,
     val model: String? = null,
@@ -53,6 +66,7 @@ data class ServiceUpdate2(
     val nextMileage: String? = null,
 )
 
+@Parcelize
 data class Service(
     val date: String? = null,
     val mileage: String? = null,
@@ -80,8 +94,8 @@ data class Service(
     val service09: String? = null,
     val service10: String? = null,
     val workshop: String? = null,
-    val year: String? = null,
-)
+    val year: String? = null
+): Parcelable
 
 data class Item(
     val name: String? = null,

@@ -25,12 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,23 +39,18 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.MutableLiveData
-import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -71,39 +62,34 @@ class MotorDetails : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val userId = intent.getStringExtra("userId")!!
+        val motorId = intent.getStringExtra("motorId")!!
+        val motor = intent.getParcelableExtra("motor") as Motorcycle?
+        println(userId)
+        println(motorId)
+        println(motor)
+
         setContent {
             TraxtiveTheme(dynamicColor = false) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color(230, 239, 252, 255)
+                val servicesLiveData = remember { MutableLiveData<List<Service>>() }
+                val serviceId = remember { MutableLiveData<List<String>>() }
 
-                ) {
-//                    val servicesLiveData = remember { MutableLiveData<List<Service>>() }
-//                    val serviceId = remember { MutableLiveData<List<String>>() }
-//
-                    TopBarNavigationExample(navigateBack = { finish() })
-//                    AppBarSelectionActions(selectedItems = setOf(1, 2, 3, 4, 5), modifier = Modifier)
-//                    fetchFirebaseData(servicesLiveData, serviceId)
-//                    AllServices(servicesLiveData, serviceId)
-                }
+                TopBarNavigation(navigateBack = { finish() })
+                fetchFirebaseData(userId, motorId, servicesLiveData, serviceId)
+                AllServices(servicesLiveData, serviceId)
             }
         }
     }
 }
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopBarNavigationExample(navigateBack: () -> Unit) {
+fun TopBarNavigation(navigateBack: () -> Unit) {
     Scaffold(
-        containerColor = Color.White,
-        topBar = { AppBarSelectionActions(selectedItems = setOf(1, 2, 3, 4, 5), modifier = Modifier, navigateBack = navigateBack) },
-    ) { //innerPadding ->
-        val servicesLiveData = remember { MutableLiveData<List<Service>>() }
-        val serviceId = remember { MutableLiveData<List<String>>() }
+        containerColor = Color(230, 239, 252, 255),
+        topBar = { AppBarSelectionActions(selectedItems = setOf(1, 2, 3, 4, 5), navigateBack = navigateBack) },
+    ) {
 
-        fetchFirebaseData(servicesLiveData, serviceId)
-        AllServices(servicesLiveData, serviceId)
     }
 }
 
@@ -111,7 +97,6 @@ fun TopBarNavigationExample(navigateBack: () -> Unit) {
 @Composable
 fun AppBarSelectionActions(
     selectedItems: Set<Int>,
-    modifier: Modifier = Modifier,
     navigateBack: () -> Unit
 ) {
     val hasSelection = selectedItems.isNotEmpty()
@@ -120,7 +105,6 @@ fun AppBarSelectionActions(
     } else {
         "List of items"
     }
-
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = Color.Black, navigationIconContentColor = Color.Black),
         title = {
@@ -137,26 +121,23 @@ fun AppBarSelectionActions(
     )
 }
 
-fun fetchFirebaseData(servicesLiveData: MutableLiveData<List<Service>>, serviceIdsLiveData: MutableLiveData<List<String>>) {
+fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: MutableLiveData<List<Service>>, serviceIdsLiveData: MutableLiveData<List<String>>) {
     val database = Firebase.database
 
     println("fetchFirebaseData")
 
-//    val userId = Firebase.auth.currentUser?.uid
-//    val userRef = motorcycleRef.child(userId!!)
-
     val servicesRef = database.getReference("services")
-    val userRef = servicesRef.child("w5uBnQl7GOdCDSYABBtqPOhjJRr1")
+    val userRef = servicesRef.child(userId)
 
-    userRef.addValueEventListener(object : ValueEventListener {
+    userRef.child(motorId).addListenerForSingleValueEvent(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
             var totalCount = 0
             var bigTotal = 0
             val services = mutableListOf<Service>()
             val serviceIds = mutableListOf<String>()
 
-            for (motorcycleSnapshot in snapshot.children) {
-                for (serviceSnapshot in motorcycleSnapshot.children) {
+//            for (motorcycleSnapshot in snapshot.children) {
+                for (serviceSnapshot in snapshot.children) {
                     totalCount++
                     if (totalCount > bigTotal) {
                         bigTotal = totalCount
@@ -172,7 +153,7 @@ fun fetchFirebaseData(servicesLiveData: MutableLiveData<List<Service>>, serviceI
                     println("\n\n\n")
                 }
                 totalCount = 0
-            }
+//            }
             servicesLiveData.value = services
             serviceIdsLiveData.value = serviceIds
 
@@ -208,7 +189,7 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: Mu
         Box(
             modifier = Modifier
                 .padding(16.dp)
-                .shadow(elevation = 4.dp, shape = RoundedCornerShape(16.dp))
+                .shadow(elevation = 12.dp, shape = RoundedCornerShape(16.dp), spotColor = Color.LightGray)
                 .background(Color.White)
         ) {
             LazyColumn(
@@ -238,7 +219,7 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: Mu
                 services?.let {
                     items(it.size) { index ->
                         val service = it[index]
-                        PlantCard(service.date!!, service.workshop!!, service.mileage!!, serviceIds.value?.get(index) ?: "")
+                        PlantCard(service, serviceIds.value?.get(index) ?: "")
                     }
                 }
             }
@@ -249,7 +230,8 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: Mu
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Button(onClick = {
-//                Add New Service
+                val intent = Intent(mContext, AddNewService::class.java)
+                mContext.startActivity(intent)
             }, modifier = Modifier
                 .padding(top = 24.dp)
                 .size(width = 240.dp, height = 48.dp),
@@ -276,7 +258,7 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: Mu
 }
 
 @Composable
-fun PlantCard(date: String, workshop: String, mileage: String, serviceId: String) {
+fun PlantCard(service: Service, serviceId: String) {
     val mContext = LocalContext.current
 
     Row(modifier = Modifier
@@ -290,6 +272,7 @@ fun PlantCard(date: String, workshop: String, mileage: String, serviceId: String
                 ServiceDetails::class.java
             )
             intent.putExtra("serviceId", serviceId)
+            intent.putExtra("service", service)
             mContext.startActivity(intent)
         },
         verticalAlignment = Alignment.Top,
@@ -297,12 +280,12 @@ fun PlantCard(date: String, workshop: String, mileage: String, serviceId: String
     ) {
         Column(Modifier.padding(8.dp)) {
             Text(
-                text = date,
+                text = service.date!!,
                 style = MaterialTheme.typography.bodySmall,
             )
 
             Text(
-                text = workshop,
+                text = service.workshop!!,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
@@ -310,7 +293,7 @@ fun PlantCard(date: String, workshop: String, mileage: String, serviceId: String
             )
         }
         Text(
-            text = "$mileage km",
+            text = "${service.mileage} km",
             modifier = Modifier
                 .padding(4.dp)
         )

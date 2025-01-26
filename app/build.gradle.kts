@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 
     id("com.google.gms.google-services")
+    id("kotlin-parcelize")
 }
 
 android {
@@ -12,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.traxtivemotor"
-        minSdk = 27
+        minSdk = 33
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -68,4 +69,5 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.accompanist.pager)
     implementation(libs.gson)
+    implementation(libs.accompanist.permissions)
 }

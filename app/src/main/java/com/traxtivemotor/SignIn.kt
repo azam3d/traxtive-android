@@ -32,6 +32,7 @@ class SignIn : ComponentActivity() {
         setContent {
             LoginScreen(onLoginSuccess = {
                 Toast.makeText(this, "Login successful!", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, MotorcyclesActivity::class.java))
             }, onLoginFailure = { error ->
                 Toast.makeText(this, "Login failed: $error", Toast.LENGTH_SHORT).show()
             })

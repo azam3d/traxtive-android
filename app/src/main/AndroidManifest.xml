@@ -34,10 +34,6 @@
             android:exported="true"
             android:theme="@style/Theme.Traxtive" />
         <activity
-            android:name=".Services"
-            android:exported="true"
-            android:theme="@style/Theme.Traxtive" />
-        <activity
             android:name=".AddNewService"
             android:exported="true"
             android:theme="@style/Theme.Traxtive" />

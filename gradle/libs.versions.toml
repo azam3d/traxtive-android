@@ -1,5 +1,6 @@
 [versions]
 accompanistPager = "0.36.0"
+accompanistPermissions = "0.24.7-alpha"
 agp = "8.8.0"
 coilCompose = "2.4.0"
 firebaseBom = "33.7.0"
@@ -19,6 +20,7 @@ navigationCompose = "2.8.5"
 
 [libraries]
 accompanist-pager = { module = "com.google.accompanist:accompanist-pager", version.ref = "accompanistPager" }
+accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
