@@ -4,14 +4,19 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -65,10 +70,21 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    val colorStops = arrayOf(
+        0.0f to Color(0, 200, 255, 255),
+        0.5f to Color(104, 54, 255, 255),
+        1f to Color(253, 106, 255, 255),
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                Brush.linearGradient(
+                colors = colorStops.map { it.second },
+                start = Offset(0f, Float.POSITIVE_INFINITY),
+                end = Offset(Float.POSITIVE_INFINITY, 0f)
+                ))
             .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -106,6 +122,7 @@ fun LoginScreen(
                         }
                     }
             },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(26, 213, 255, 255)),
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading
         ) {
@@ -117,14 +134,17 @@ fun LoginScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Text("Don't have an account? Sign up!", color = Color.DarkGray)
+        Text("Don't have an account? Sign up!", color = Color.White)
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = {
-            context.startActivity(Intent(context, SignUp::class.java))
-        }) {
+        Button(
+            onClick = { context.startActivity(Intent(context, SignUp::class.java)) },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(26, 213, 255, 255))
+        ) {
             Text(text = "Sign up")
         }
 

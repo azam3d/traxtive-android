@@ -323,7 +323,7 @@ fun PagerAnimateToItem(userId: String, motorcycles: MutableLiveData<List<Motorcy
                                         .background(Color.White)
                                         .align(Alignment.Center)
                                 ) {
-                                    BikeImage(imageUrl = it)
+                                    BikeImage(imageUrl = it, modifier = Modifier.size(200.dp))
                                 }
                             }
                         }
@@ -407,11 +407,11 @@ fun PagerAnimateToItem(userId: String, motorcycles: MutableLiveData<List<Motorcy
 }
 
 @Composable
-fun BikeImage(imageUrl: String) {
+fun BikeImage(imageUrl: String, modifier: Modifier) {
     AsyncImage(
         model = imageUrl,
         contentDescription = "Bike Image",
-        modifier = Modifier.size(200.dp),
+        modifier = modifier,
         contentScale = ContentScale.Fit
     )
 }
@@ -512,6 +512,9 @@ fun ProfileMenu() {
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
 
+    val user = FirebaseAuth.getInstance()
+    val email = user.currentUser?.email
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -527,8 +530,13 @@ fun ProfileMenu() {
                 onDismissRequest = { expanded = false }
             ) {
                 DropdownMenuItem(
+                    text = { Text(email!!) },
+                    onClick = {}
+                )
+
+                DropdownMenuItem(
                     text = { Text("Logout") },
-                leadingIcon = { LogoutImage() },
+                    leadingIcon = { LogoutImage() },
                     onClick = {
                         expanded = false
                         val firebaseAuth = FirebaseAuth.getInstance()

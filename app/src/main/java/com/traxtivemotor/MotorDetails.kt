@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -44,9 +45,11 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,7 +79,7 @@ class MotorDetails : ComponentActivity() {
 
                 TopBarNavigation(navigateBack = { finish() })
                 fetchFirebaseData(userId, motorId, servicesLiveData, serviceId)
-                AllServices(servicesLiveData, serviceId)
+                AllServices(motor, servicesLiveData, serviceId)
             }
         }
     }
@@ -167,7 +170,7 @@ fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: Mutable
 }
 
 @Composable
-fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: MutableLiveData<List<String>>) {
+fun AllServices(motor: Motorcycle?, servicesLiveData: MutableLiveData<List<Service>>, serviceIds: MutableLiveData<List<String>>) {
     val mContext = LocalContext.current
     val services by servicesLiveData.observeAsState(initial = emptyList())
 
@@ -175,20 +178,14 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: Mu
         .fillMaxWidth()
         .wrapContentHeight()
         .padding(top = 80.dp)
-        .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+        .padding(horizontal = 16.dp)
+        .verticalScroll(rememberScrollState())
     ) {
-        Text(
-            "Yamaha Lagenda",
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontWeight = FontWeight.Thin,
-                fontSize = 32.sp
-            )
-        )
+        MotorHeader(motor)
 
         Box(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(top = 16.dp)
                 .shadow(elevation = 12.dp, shape = RoundedCornerShape(16.dp), spotColor = Color.LightGray)
                 .background(Color.White)
         ) {
@@ -219,7 +216,7 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: Mu
                 services?.let {
                     items(it.size) { index ->
                         val service = it[index]
-                        PlantCard(service, serviceIds.value?.get(index) ?: "")
+                        PlantCard(motor, service, serviceIds.value?.get(index) ?: "")
                     }
                 }
             }
@@ -231,6 +228,7 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: Mu
         ) {
             Button(onClick = {
                 val intent = Intent(mContext, AddNewService::class.java)
+                intent.putExtra("motor", motor)
                 mContext.startActivity(intent)
             }, modifier = Modifier
                 .padding(top = 24.dp)
@@ -258,7 +256,35 @@ fun AllServices(servicesLiveData: MutableLiveData<List<Service>>, serviceIds: Mu
 }
 
 @Composable
-fun PlantCard(service: Service, serviceId: String) {
+fun MotorHeader(motor: Motorcycle?) {
+    Row() {
+        BikeImage(
+            motor?.imageUrl!!,
+            modifier = Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+        )
+
+        Column(
+            modifier = Modifier.padding(start = 12.dp)
+        ) {
+            Text(
+                text = motor.brand!! + motor.model!!,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = motor.plateNumber!!,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
+fun PlantCard(motor: Motorcycle?, service: Service, serviceId: String) {
     val mContext = LocalContext.current
 
     Row(modifier = Modifier
@@ -267,12 +293,10 @@ fun PlantCard(service: Service, serviceId: String) {
         .clickable {
             println(serviceId)
 
-            val intent = Intent(
-                mContext,
-                ServiceDetails::class.java
-            )
+            val intent = Intent(mContext, ServiceDetails::class.java)
             intent.putExtra("serviceId", serviceId)
             intent.putExtra("service", service)
+            intent.putExtra("motor", motor)
             mContext.startActivity(intent)
         },
         verticalAlignment = Alignment.Top,

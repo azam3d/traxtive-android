@@ -41,6 +41,7 @@ class ServiceDetails : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val motorId = intent.getStringExtra("motorId")
+        val motor = intent.getParcelableExtra("motor") as Motorcycle?
         println("motorId: $motorId")
 
         setContent {
@@ -55,31 +56,25 @@ class ServiceDetails : ComponentActivity() {
                 println("service total: ${service?.price}\n\n\n")
 
                 TopBarNavigation(navigateBack = { finish() })
-                ServiceItems(service)
+                ServiceItems(motor, service)
 //            ChatScreen()
             }
         }
     }
 
     @Composable
-    fun ServiceItems(service: Service?) {
+    fun ServiceItems(motor: Motorcycle?, service: Service?) {
         Column(modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 80.dp)
-            .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+            .padding(top = 60.dp)
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .verticalScroll(rememberScrollState())
         ) {
-            Text(
-                "Yamaha Lagenda",
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Thin,
-                    fontSize = 32.sp
-                )
-            )
+            MotorHeader(motor)
 
             Box(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(top = 16.dp)
                     .fillMaxWidth()
                     .shadow(elevation = 12.dp, shape = RoundedCornerShape(16.dp), spotColor = Color.LightGray)
                     .background(Color.White)
@@ -100,10 +95,10 @@ class ServiceDetails : ComponentActivity() {
                             text = service?.workshop!!,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
+                                fontSize = 16.sp)
                         )
                     }
+
                     Text(
                         text = "${service?.mileage!!} km",
                         modifier = Modifier
@@ -114,7 +109,7 @@ class ServiceDetails : ComponentActivity() {
 
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp)
+                    .padding(top = 16.dp)
                     .shadow(elevation = 4.dp, shape = RoundedCornerShape(16.dp), spotColor = Color.LightGray)
                     .background(Color.White)
             ) {
@@ -185,7 +180,7 @@ class ServiceDetails : ComponentActivity() {
 
             Box(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(vertical = 16.dp)
                     .fillMaxWidth()
                     .shadow(elevation = 4.dp, shape = RoundedCornerShape(16.dp), spotColor = Color.LightGray)
                     .background(Color.White)
@@ -212,28 +207,6 @@ class ServiceDetails : ComponentActivity() {
                 }
             }
         }
-    }
-
-    @Composable
-    fun ServiceItemCard(index: Int, item: Item) {
-        Row(modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "${index + 1}. ${item.name}",
-                modifier = Modifier
-                    .padding(4.dp)
-            )
-            Text(
-                text = "RM${item.price}",
-                modifier = Modifier
-                    .padding(4.dp)
-            )
-        }
-        HorizontalDivider(thickness = 1.dp, color = Color(230, 239, 252, 255))
     }
 
     data class ChatMessage(
@@ -330,6 +303,26 @@ class ServiceDetails : ComponentActivity() {
             ChatScreen()
         }
     }
+}
 
-
+@Composable
+fun ServiceItemCard(index: Int, item: Item) {
+    Row(modifier = Modifier
+        .padding(vertical = 8.dp)
+        .fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "${index + 1}. ${item.name}",
+            modifier = Modifier
+                .padding(4.dp)
+        )
+        Text(
+            text = "RM${item.price}",
+            modifier = Modifier
+                .padding(4.dp)
+        )
+    }
+    HorizontalDivider(thickness = 1.dp, color = Color(230, 239, 252, 255))
 }
