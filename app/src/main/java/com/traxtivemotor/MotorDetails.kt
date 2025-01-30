@@ -145,15 +145,15 @@ fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: Mutable
                     if (totalCount > bigTotal) {
                         bigTotal = totalCount
                     }
-                    println("Service ID: ${serviceSnapshot.key}")
+//                    println("Service ID: ${serviceSnapshot.key}")
                     serviceIds.add(serviceSnapshot.key!!)
 
                     val serviceUpdate = serviceSnapshot.getValue(Service::class.java)
                     serviceUpdate?.let {
-                        println("- service: $it")
+//                        println("- service: $it")
                         services.add(it)
                     }
-                    println("\n\n\n")
+//                    println("\n\n\n")
                 }
                 totalCount = 0
 //            }
@@ -270,7 +270,7 @@ fun MotorHeader(motor: Motorcycle?) {
             modifier = Modifier.padding(start = 12.dp)
         ) {
             Text(
-                text = motor.brand!! + motor.model!!,
+                text = motor.brand!! + " " + motor.model!!,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )

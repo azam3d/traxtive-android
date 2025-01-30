@@ -70,4 +70,5 @@ dependencies {
     implementation(libs.accompanist.pager)
     implementation(libs.gson)
     implementation(libs.accompanist.permissions)
+    implementation(libs.androidx.material.icons.extended)
 }
