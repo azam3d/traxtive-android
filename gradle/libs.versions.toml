@@ -1,7 +1,7 @@
 [versions]
 accompanistPager = "0.36.0"
 accompanistPermissions = "0.24.7-alpha"
-agp = "8.8.0"
+agp = "8.9.2"
 coilCompose = "2.4.0"
 firebaseBom = "33.7.0"
 gson = "2.10.1"

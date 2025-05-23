@@ -54,6 +54,10 @@
             android:name=".ServiceDetails"
             android:exported="true"
             android:theme="@style/Theme.Traxtive" />
+        <activity
+            android:name=".PhotoViewer"
+            android:exported="true"
+            android:theme="@style/Theme.Traxtive" />
     </application>
 
 </manifest>

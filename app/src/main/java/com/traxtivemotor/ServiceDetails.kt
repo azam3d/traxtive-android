@@ -43,17 +43,20 @@ class ServiceDetails : ComponentActivity() {
         val motorId = intent.getStringExtra("motorId")
         val motor = intent.getParcelableExtra("motor") as Motorcycle?
         println("motorId: $motorId")
+        println("motor: $motor")
 
         setContent {
             TraxtiveTheme(dynamicColor = false) {
                 val serviceId = intent.getStringExtra("serviceId")
-                val service = intent.getParcelableExtra("service") as Service?
+                val service = intent.getParcelableExtra("service") as Service2?
 
                 println("serviceId: $serviceId")
                 println("service date: ${service?.date}\n")
-                println("service workshop: ${service?.workshop}\n")
+                println("service items: ${service?.items}\n")
                 println("service mileage: ${service?.mileage}\n")
-                println("service total: ${service?.price}\n\n\n")
+                println("service total: ${service?.total}\n")
+                println("service remark: ${service?.remark}\n")
+                println("service workshop: ${service?.workshop}\n\n\n")
 
                 TopBarNavigation(navigateBack = { finish() })
                 ServiceItems(motor, service)
@@ -63,7 +66,7 @@ class ServiceDetails : ComponentActivity() {
     }
 
     @Composable
-    fun ServiceItems(motor: Motorcycle?, service: Service?) {
+    fun ServiceItems(motor: Motorcycle?, service: Service2?) {
         Column(modifier = Modifier
             .fillMaxWidth()
             .padding(top = 60.dp)
@@ -137,20 +140,14 @@ class ServiceDetails : ComponentActivity() {
                             )
                         }
                     }
-                    val serviceItem1 = Item(service?.service01, service?.price01)
-                    val serviceItem2 = Item(service?.service02, service?.price02)
-                    val serviceItem3 = Item(service?.service03, service?.price03)
-                    val serviceItem4 = Item(service?.service04, service?.price04)
-                    val serviceItem5 = Item(service?.service05, service?.price05)
-                    val serviceItem6 = Item(service?.service06, service?.price06)
-                    val serviceItem7 = Item(service?.service07, service?.price07)
-                    val serviceItem8 = Item(service?.service08, service?.price08)
-                    val serviceItem9 = Item(service?.service09, service?.price09)
-                    val serviceItem10 = Item(service?.service10, service?.price10)
+                    if (service != null) {
+                        service.items?.let { map ->
+                            val itemList = map.values.toList()
 
-                    val serviceItems = listOf(serviceItem1, serviceItem2, serviceItem3, serviceItem4, serviceItem5, serviceItem6, serviceItem7, serviceItem8, serviceItem9, serviceItem10).filter {  item -> item.name != "" || item.price != "" }
-                    items(serviceItems.size) { index ->
-                        ServiceItemCard(index, serviceItems[index])
+                            items(itemList.size) { index ->
+                                ServiceItemCard(index, itemList[index])
+                            }
+                        }
                     }
                     item {
                         Row(modifier = Modifier
@@ -168,7 +165,7 @@ class ServiceDetails : ComponentActivity() {
                             )
 
                             Text(
-                                text = "RM${service?.price}",
+                                text = "RM${service?.total}",
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp)
@@ -306,7 +303,7 @@ class ServiceDetails : ComponentActivity() {
 }
 
 @Composable
-fun ServiceItemCard(index: Int, item: Item) {
+fun ServiceItemCard(index: Int, item: Item?) {
     Row(modifier = Modifier
         .padding(vertical = 8.dp)
         .fillMaxWidth(),
@@ -314,12 +311,12 @@ fun ServiceItemCard(index: Int, item: Item) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            text = "${index + 1}. ${item.name}",
+            text = "${index + 1}. ${item?.name}",
             modifier = Modifier
                 .padding(4.dp)
         )
         Text(
-            text = "RM${item.price}",
+            text = "RM${item?.price}",
             modifier = Modifier
                 .padding(4.dp)
         )

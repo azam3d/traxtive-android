@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.material.icons.filled.Motorcycle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,7 +76,7 @@ class MotorDetails : ComponentActivity() {
 
         setContent {
             TraxtiveTheme(dynamicColor = false) {
-                val servicesLiveData = remember { MutableLiveData<List<Service>>() }
+                val servicesLiveData = remember { MutableLiveData<List<Service2>>() }
                 val serviceId = remember { MutableLiveData<List<String>>() }
 
                 TopBarNavigation(navigateBack = { finish() })
@@ -90,7 +92,7 @@ class MotorDetails : ComponentActivity() {
 fun TopBarNavigation(navigateBack: () -> Unit) {
     Scaffold(
         containerColor = Color(230, 239, 252, 255),
-        topBar = { AppBarSelectionActions(selectedItems = setOf(1, 2, 3, 4, 5), navigateBack = navigateBack) },
+        topBar = { AppBarSelectionActions("", navigateBack = navigateBack) },
     ) {
 
     }
@@ -99,19 +101,14 @@ fun TopBarNavigation(navigateBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppBarSelectionActions(
-    selectedItems: Set<Int>,
+    title: String?,
     navigateBack: () -> Unit
 ) {
-    val hasSelection = selectedItems.isNotEmpty()
-    val topBarText = if (hasSelection) {
-        "Selected ${selectedItems.size} items"
-    } else {
-        "List of items"
-    }
+    val topBarText = title
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = Color.Black, navigationIconContentColor = Color.Black),
         title = {
-            Text(topBarText)
+            Text(title!!)
         },
         navigationIcon = {
             IconButton(onClick = { navigateBack() }) {
@@ -124,11 +121,10 @@ fun AppBarSelectionActions(
     )
 }
 
-fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: MutableLiveData<List<Service>>, serviceIdsLiveData: MutableLiveData<List<String>>) {
-    val database = Firebase.database
-
+fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: MutableLiveData<List<Service2>>, serviceIdsLiveData: MutableLiveData<List<String>>) {
     println("fetchFirebaseData")
 
+    val database = Firebase.database
     val servicesRef = database.getReference("services")
     val userRef = servicesRef.child(userId)
 
@@ -136,27 +132,24 @@ fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: Mutable
         override fun onDataChange(snapshot: DataSnapshot) {
             var totalCount = 0
             var bigTotal = 0
-            val services = mutableListOf<Service>()
+            val services = mutableListOf<Service2>()
             val serviceIds = mutableListOf<String>()
 
-//            for (motorcycleSnapshot in snapshot.children) {
-                for (serviceSnapshot in snapshot.children) {
-                    totalCount++
-                    if (totalCount > bigTotal) {
-                        bigTotal = totalCount
-                    }
-//                    println("Service ID: ${serviceSnapshot.key}")
-                    serviceIds.add(serviceSnapshot.key!!)
-
-                    val serviceUpdate = serviceSnapshot.getValue(Service::class.java)
-                    serviceUpdate?.let {
-//                        println("- service: $it")
-                        services.add(it)
-                    }
-//                    println("\n\n\n")
+            for (serviceSnapshot in snapshot.children) {
+                totalCount++
+                if (totalCount > bigTotal) {
+                    bigTotal = totalCount
                 }
-                totalCount = 0
-//            }
+                println("Service ID: ${serviceSnapshot.key}")
+                serviceIds.add(serviceSnapshot.key!!)
+
+                val serviceUpdate2 = serviceSnapshot.getValue(Service2::class.java)
+                println("- serviceUpdate2: $serviceUpdate2")
+                services.add(serviceUpdate2 ?: Service2())
+
+//                    println("\n\n\n")
+            }
+            totalCount = 0
             servicesLiveData.value = services
             serviceIdsLiveData.value = serviceIds
 
@@ -170,7 +163,7 @@ fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: Mutable
 }
 
 @Composable
-fun AllServices(motor: Motorcycle?, servicesLiveData: MutableLiveData<List<Service>>, serviceIds: MutableLiveData<List<String>>) {
+fun AllServices(motor: Motorcycle?, servicesLiveData: MutableLiveData<List<Service2>>, serviceIds: MutableLiveData<List<String>>) {
     val mContext = LocalContext.current
     val services by servicesLiveData.observeAsState(initial = emptyList())
 
@@ -258,33 +251,52 @@ fun AllServices(motor: Motorcycle?, servicesLiveData: MutableLiveData<List<Servi
 @Composable
 fun MotorHeader(motor: Motorcycle?) {
     Row() {
-        BikeImage(
-            motor?.imageUrl!!,
-            modifier = Modifier
-                .size(60.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-        )
+        if (motor?.imageUrl != null) {
+            BikeImage(
+                motor.imageUrl,
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    modifier = Modifier.size(40.dp),
+                    imageVector = Icons.Default.Motorcycle,
+                    contentDescription = "Motorbike",
+                    tint = Color.Blue
+                )
+            }
+        }
 
         Column(
             modifier = Modifier.padding(start = 12.dp)
         ) {
             Text(
-                text = motor.brand!! + " " + motor.model!!,
+                text = motor?.brand + " " + motor?.model,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-            Text(
-                text = motor.plateNumber!!,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
-            )
+            motor?.plateNumber?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
         }
     }
 }
 
 @Composable
-fun PlantCard(motor: Motorcycle?, service: Service, serviceId: String) {
+fun PlantCard(motor: Motorcycle?, service: Service2, serviceId: String) {
     val mContext = LocalContext.current
 
     Row(modifier = Modifier

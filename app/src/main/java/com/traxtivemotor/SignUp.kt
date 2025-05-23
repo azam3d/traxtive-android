@@ -19,6 +19,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -49,14 +51,14 @@ class SignUp : ComponentActivity() {
                 Toast.makeText(this, "Signup successful!", Toast.LENGTH_SHORT).show()
                 startActivity(Intent(this, SignIn::class.java))
             }, onSignupFailure = { error ->
-                Toast.makeText(this, "Signup failed: $error", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Signup failed: $error", Toast.LENGTH_LONG).show()
             })
         }
     }
 
     override fun onStart() {
         super.onStart()
-        // Check if user is signed in (non-null) and update UI accordingly.
+
         val currentUser = auth.currentUser
         if (currentUser != null) {
             reload()
@@ -74,6 +76,7 @@ fun SignUpScreen(
     onSignupFailure: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val auth = Firebase.auth
 
     var email by remember { mutableStateOf("") }
@@ -116,7 +119,9 @@ fun SignUpScreen(
             label = { Text("Email") },
             isError = emailError != null,
             supportingText = {
-                emailError?.let { Text(it) }
+                emailError?.let {
+                    Text(it, color = Color.Red, style = MaterialTheme.typography.bodySmall)
+                }
             },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email,
@@ -140,7 +145,9 @@ fun SignUpScreen(
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             isError = passwordError != null,
             supportingText = {
-                passwordError?.let { Text(it) }
+                passwordError?.let {
+                    Text(it, color = Color.Red, style = MaterialTheme.typography.bodySmall)
+                }
             },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
@@ -169,7 +176,9 @@ fun SignUpScreen(
             visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             isError = confirmPasswordError != null,
             supportingText = {
-                confirmPasswordError?.let { Text(it) }
+                confirmPasswordError?.let {
+                    Text(it, color = Color.Red, style = MaterialTheme.typography.bodySmall)
+                }
             },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password,
@@ -190,23 +199,29 @@ fun SignUpScreen(
 
         Button(
             onClick = {
-                isLoading = true
+                Log.d("SignUpScreen", "Button clicked")
+
+                emailError = validateEmail(email.trim())
+                passwordError = validatePassword(password.trim())
+                confirmPasswordError = validatePasswordMatch(password.trim(), confirmPassword.trim())
 
                 if (!isFormValid(email, password, confirmPassword)) {
+                    Log.d("SignUpScreen", "Form is not valid")
                     return@Button
                 }
+                isLoading = true
+
                 auth.createUserWithEmailAndPassword(email, password)
                     .addOnCompleteListener { task ->
+                        isLoading = false
+                        keyboardController?.hide()
+
                         if (task.isSuccessful) {
                             Log.d(TAG, "createUserWithEmail:success")
-                            val user = auth.currentUser
                             onSignupSuccess()
-//                            updateUI(user)
                         } else {
                             Log.w(TAG, "createUserWithEmail:failure", task.exception)
-                            Toast.makeText(context, "Authentication failed.", Toast.LENGTH_SHORT).show()
                             onSignupFailure(task.exception?.message ?: "Unknown error")
-//                            updateUI(null)
                         }
                     }
             },

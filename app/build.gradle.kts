@@ -64,6 +64,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.runtime.livedata)
     implementation(libs.coil.compose)
+    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)

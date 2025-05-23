@@ -51,7 +51,7 @@ fun TraxtiveTheme(
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = LightColorScheme, //colorScheme,
         typography = Typography,
         content = content
     )

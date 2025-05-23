@@ -4,11 +4,13 @@ package com.traxtivemotor
 
 import android.content.Context
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -18,6 +20,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -40,6 +43,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,17 +53,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -73,6 +84,10 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
+import androidx.core.net.toUri
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
 
 class AddNewService : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -80,11 +95,12 @@ class AddNewService : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val motor = intent.getParcelableExtra("motor") as Motorcycle?
+        Log.d("motor", motor.toString())
 
         enableEdgeToEdge()
+
         setContent {
             TraxtiveTheme(dynamicColor = false) {
-//                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                 var showBottomSheet by remember { mutableStateOf(false) }
                 val sheetState = rememberModalBottomSheetState()
                 var imageUri by remember { mutableStateOf<Uri?>(null) }
@@ -96,12 +112,33 @@ class AddNewService : ComponentActivity() {
                     onShowBottomSheetChange = { newValue ->
                         showBottomSheet = newValue
                     },
-                    onSubmit = { serviceFormData ->
-                        println(serviceFormData.serviceDate)
-                        println(serviceFormData.workshopName)
-                        println(serviceFormData.mileage)
-                        println(serviceFormData.serviceDescriptions)
-                        println(serviceFormData.remarks)
+                    onSubmit = { service ->
+                        println(service.date)
+                        println(service.items)
+                        println(service.mileage)
+                        println(service.total)
+                        println(service.remark)
+                        println(service.workshop)
+
+                        val database = Firebase.database
+                        val userId = Firebase.auth.currentUser?.uid
+
+                        Log.d("userId", userId.toString())
+
+//                        val service2 = Service2(serviceFormData.serviceDate, serviceFormData.workshopName, serviceFormData.mileage, serviceFormData.serviceDescriptions, serviceFormData.remarks)
+                        val serviceId = database.reference.child("services").child(userId!!).child(motor?.motorId!!).push()
+                        Log.d("serviceId", serviceId.toString())
+                        Log.d("serviceId", serviceId.key.toString())
+
+                        serviceId.setValue(service)
+
+                        finish()
+
+                        // use serviceId to setValue of date, workshop, mileage, remarks, item[], price[], totalPrice
+
+//                        if (userId != null) {
+//                            database.reference.child("services").child(userId).child(motor?.motorId!!).child(serviceId).setValue(service2)
+//                        }
                     }
                 )
                 if (showBottomSheet) {
@@ -113,26 +150,17 @@ class AddNewService : ComponentActivity() {
                         CameraBottomSheet(baseContext,
                             onDismiss = { showBottomSheet = false },
                             onAction = {
-                                imageUri = Uri.parse(it)
+                                imageUri = it.toUri()
                                 println("camera bottom sheet dismissed")
                                 println(imageUri.toString())
                             }
                         )
                     }
                 }
-//            }
             }
         }
     }
 }
-
-data class ServiceFormData(
-    val serviceDate: String,
-    val workshopName: String,
-    val mileage: String,
-    val serviceDescriptions: List<Item>,
-    val remarks: String
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,8 +169,9 @@ fun ServiceForm(
     imageUri: Uri?,
     onBackPressed: () -> Unit,
     onShowBottomSheetChange: (Boolean) -> Unit,
-    onSubmit: (ServiceFormData) -> Unit
+    onSubmit: (Service2) -> Unit
 ) {
+    val mContext = LocalContext.current
     var serviceDate by remember { mutableStateOf("") }
     var workshopName by remember { mutableStateOf("") }
     var mileage by remember { mutableStateOf("") }
@@ -156,6 +185,13 @@ fun ServiceForm(
 
     if (serviceDate.isEmpty()) {
         serviceDate = "$todayDate (Today)"
+    }
+    serviceDescriptions.add(Item(null, null))
+
+    val totalPrice by remember(serviceDescriptions) {
+        derivedStateOf {
+            serviceDescriptions.sumOf { it.price?.toIntOrNull() ?: 0 }.toString()
+        }
     }
 
     if (showDatePicker) {
@@ -200,13 +236,6 @@ fun ServiceForm(
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = {
-                serviceDescriptions.add(Item("meow", "20"))
-            }) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
-            }
         }
     ) { padding ->
         Column(
@@ -249,7 +278,7 @@ fun ServiceForm(
 
             EnhancedCapsuleTextField(
                 value = workshopName,
-                keyboardOptions = KeyboardOptions.Default,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, keyboardType = KeyboardType.Text, imeAction = ImeAction.Default),
                 onTextChange = { workshopName = it }
             )
 
@@ -282,45 +311,93 @@ fun ServiceForm(
             Spacer(modifier = Modifier.height(8.dp))
 
             Box(modifier = Modifier
-                    .padding(vertical = 16.dp)
-                    .fillMaxWidth()
-                    .height(150.dp)
-                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(16.dp), spotColor = Color.LightGray)
-                    .background(Color.White),
+                .padding(vertical = 16.dp)
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .shadow(
+                    elevation = 4.dp,
+                    shape = RoundedCornerShape(16.dp),
+                    spotColor = Color.LightGray
+                )
+                .background(Color.White),
                 contentAlignment = if (serviceDescriptions.isNotEmpty()) Alignment.TopStart else Alignment.Center
             ) {
-                if (serviceDescriptions.isEmpty()) {
-                    Text(
-                        text = "Tap ‘+’ button to add service item",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontSize = 16.sp
-                        ),
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                    )
-                } else {
-                    LazyColumn(contentPadding = PaddingValues(16.dp)) {
-                        items(serviceDescriptions.size) {
-                            ServiceItemCard(it, serviceDescriptions[it])
-                        }
+                Column(modifier = Modifier.padding(16.dp)) {
+                    serviceDescriptions.forEachIndexed { index, item ->
+                        ServiceItemForm(index, item,
+                            onValueChange = { newText ->
+                                serviceDescriptions[index] = serviceDescriptions[index].copy(name = newText)
+
+                                if (index == serviceDescriptions.lastIndex && newText.isNotEmpty()) {
+                                    serviceDescriptions.add(Item())
+                                }
+                                if (index == serviceDescriptions.lastIndex - 1 && newText.isEmpty()) {
+                                    serviceDescriptions.removeLastOrNull()
+                                }
+                            },
+                            onPriceChange = { newPrice ->
+                                serviceDescriptions[index] = serviceDescriptions[index].copy(price = newPrice)
+                            }
+                        )
+                    }
+
+                    Row(modifier = Modifier.padding(top = 8.dp)) {
+                        Text(
+                            text = "Total",
+                            modifier = Modifier.weight(1f).fillMaxWidth().padding(end = 12.dp),
+                            textAlign = TextAlign.End,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+
+                        Text(
+                            text = "RM$totalPrice",
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.width(67.dp),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+//            Spacer(modifier = Modifier.height(24.dp))
+//
+//            Text(
+//                text = "Picture (optional)",
+//                style = MaterialTheme.typography.titleMedium,
+//                fontWeight = FontWeight.Bold
+//            )
+//
+//            Spacer(modifier = Modifier.height(8.dp))
+//
+//            PlusIconBox(imageUri = imageUri, onClick = {
+//                if (imageUri == null) {
+//                    onShowBottomSheetChange(true)
+//                } else {
+//                    val intent = Intent(mContext, PhotoViewer::class.java)
+//                    intent.putExtra("imageUri", imageUri)
+//                    mContext.startActivity(intent)
+//                }
+//            })
 
-            Text(
-                text = "Picture (optional)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            PlusIconBox(imageUri = imageUri, onClick = {
-                onShowBottomSheetChange(true)
-                println("Plus icon clicked")
-            })
+//            Button(enabled = if (imageUri != null) true else false,
+//                modifier = Modifier
+//                    .size(70.dp, 36.dp)
+//                    .padding(top = 4.dp),
+//                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+//                shape = RoundedCornerShape(6.dp),
+//                contentPadding = PaddingValues(0.dp),
+//                onClick = {
+////                    imageUri = null
+//                }
+//            ) {
+//                Icon(
+//                    modifier = Modifier.size(16.dp),
+//                    imageVector = Icons.Default.Delete,
+//                    contentDescription = "Delete",
+//                    tint = Color.LightGray
+//                )
+//                Text(text = "Delete", color = Color.LightGray)
+//            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -347,15 +424,22 @@ fun ServiceForm(
 
             Button(
                 onClick = {
-                    onSubmit(
-                        ServiceFormData(
-                            serviceDate = serviceDate,
-                            workshopName = workshopName,
-                            mileage = mileage,
-                            serviceDescriptions = serviceDescriptions,
-                            remarks = remarks
-                        )
-                    )
+                    val serviceDescriptions2 = serviceDescriptions.toMutableList()
+
+                    serviceDescriptions2.removeAll {
+                        it.name.isNullOrBlank() || it.price.isNullOrBlank()
+                    }
+                    println("serviceDescriptions2 $serviceDescriptions2")
+//                    onSubmit(
+//                        Service2(
+//                            date = serviceDate,
+//                            items = null,
+//                            mileage = mileage,
+//                            total = totalPrice,
+//                            remark = remarks,
+//                            workshop = workshopName,
+//                        )
+//                    )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -397,6 +481,122 @@ fun PlusIconBox(imageUri: Uri?, onClick: () -> Unit) {
     }
 }
 
+@Composable
+fun ServiceItemForm(index: Int, item: Item, onValueChange: (String) -> Unit, onPriceChange: (String) -> Unit) {
+    var item by remember { mutableStateOf(item) }
+    val dividerColor = Color(0xFFE3EDFB)
+
+    Row(modifier = Modifier
+        .padding(vertical = 8.dp)
+        .fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        ItemTextField(Modifier
+            .padding(start = 4.dp)
+            .height(44.dp)
+            .weight(1f)
+            .drawBehind {
+                drawLine(
+                    color = dividerColor,
+                    start = Offset(0f, size.height),
+                    end = Offset(size.width, size.height),
+                    strokeWidth = 1.dp.toPx()
+                )
+            },
+            "Service Item", item.name, "${index + 1}. ", KeyboardOptions(keyboardType = KeyboardType.Text)) { newText ->
+            item = item.copy(name = newText)
+            onValueChange(newText)
+        }
+
+        ItemTextField(Modifier
+                        .height(44.dp)
+                        .width(67.dp)
+                        .drawBehind {
+                            drawLine(
+                                color = dividerColor,
+                                start = Offset(0f, size.height),
+                                end = Offset(size.width, size.height),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        },
+            "0", item.price, "RM", KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Default)) { newText ->
+            item = item.copy(price = newText)
+            onPriceChange(newText)
+        }
+    }
+}
+
+@Composable
+fun ItemTextField(modifier: Modifier, placeholder: String, value: String?, prefix: String, keyboardOptions: KeyboardOptions, onValueChange: (String) -> Unit) {
+    BasicTextField(
+        modifier = modifier,
+        value = value?: "",
+        onValueChange = onValueChange,
+        textStyle = TextStyle(
+            color = Color.Black,
+            fontSize = 16.sp,
+            textAlign = TextAlign.Start
+        ),
+        singleLine = true,
+        decorationBox = { innerTextField ->
+            Box(
+                contentAlignment = Alignment.CenterStart,
+                modifier = Modifier.padding(vertical = 8.dp),
+            ) {
+                if (value == null) {
+                    Row {
+                        Text(
+                            text = prefix,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        )
+
+                        Text(
+                            text = placeholder,
+                            color = Color.Gray,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+                innerTextField() // The actual text field
+            }
+        },
+        keyboardOptions = keyboardOptions,
+        visualTransformation = PrefixTransformation(prefix)
+    )
+}
+
+class PrefixTransformation(val prefix: String) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        return PrefixFilter(text, prefix)
+    }
+}
+
+fun PrefixFilter(number: AnnotatedString, prefix: String): TransformedText {
+    var out = prefix + number.text
+    val prefixOffset = prefix.length
+
+    val numberOffsetTranslator = object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int {
+            return offset + prefixOffset
+        }
+
+        override fun transformedToOriginal(offset: Int): Int {
+            if (offset < prefixOffset) return 0
+            return offset - prefixOffset
+        }
+    }
+    return TransformedText(AnnotatedString(out), numberOffsetTranslator)
+}
+
+//@Preview
+//@Composable
+//fun PreviewServiceItemForm() {
+//    ServiceItemForm(index = 0, item = Item("Example Service", "10.50"),
+//        onValueChange = { })
+//}
+
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
@@ -405,7 +605,7 @@ fun GreetingPreview() {
             Motorcycle(), null,
             onBackPressed = { /* Handle back navigation */ },
             onShowBottomSheetChange = { /* Handle bottom sheet visibility change */ },
-            onSubmit = { serviceFormData ->
+            onSubmit = { service ->
                 // Handle form submission
             }
         )
