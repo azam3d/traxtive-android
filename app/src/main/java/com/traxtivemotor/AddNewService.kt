@@ -2,6 +2,7 @@
 
 package com.traxtivemotor
 
+import android.app.Activity
 import android.content.Context
 import android.Manifest
 import android.content.Intent
@@ -88,6 +89,7 @@ import androidx.core.net.toUri
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
+import com.google.gson.Gson
 
 class AddNewService : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -113,6 +115,7 @@ class AddNewService : ComponentActivity() {
                         showBottomSheet = newValue
                     },
                     onSubmit = { service ->
+                        println("onSubmit $service")
                         println(service.date)
                         println(service.items)
                         println(service.mileage)
@@ -125,13 +128,24 @@ class AddNewService : ComponentActivity() {
 
                         Log.d("userId", userId.toString())
 
-//                        val service2 = Service2(serviceFormData.serviceDate, serviceFormData.workshopName, serviceFormData.mileage, serviceFormData.serviceDescriptions, serviceFormData.remarks)
-                        val serviceId = database.reference.child("services").child(userId!!).child(motor?.motorId!!).push()
-                        Log.d("serviceId", serviceId.toString())
-                        Log.d("serviceId", serviceId.key.toString())
+                        val items = null
+                        val service3 = Service3(service.date, items, service.mileage, service.total, service.remark, service.workshop)
+                        val motorId = motor?.motorId ?: return@ServiceForm
+                        val serviceRef = database.getReference("services")
+                        val serviceId = serviceRef.child(userId!!).child(motorId).push()
+                        serviceId.setValue(service3)
 
-                        serviceId.setValue(service)
+                        service.items?.forEach { (_, item) ->
+                            serviceId.child("items").push().setValue(item)
+                        }
 
+                        Log.d("ServiceUpload", Gson().toJson(service3))
+
+//                        Log.d("serviceId", serviceId.toString())
+//                        serviceRef.setValue(service3)
+
+                        val resultIntent = Intent()
+                        setResult(RESULT_OK, resultIntent)
                         finish()
 
                         // use serviceId to setValue of date, workshop, mileage, remarks, item[], price[], totalPrice
@@ -169,24 +183,24 @@ fun ServiceForm(
     imageUri: Uri?,
     onBackPressed: () -> Unit,
     onShowBottomSheetChange: (Boolean) -> Unit,
-    onSubmit: (Service2) -> Unit
+    onSubmit: (Service3) -> Unit
 ) {
     val mContext = LocalContext.current
     var serviceDate by remember { mutableStateOf("") }
     var workshopName by remember { mutableStateOf("") }
     var mileage by remember { mutableStateOf("") }
-    val serviceDescriptions = remember { mutableStateListOf<Item>() }
+    val serviceDescriptions = remember { mutableStateListOf<Item2>() }
     var remarks by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
-    val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
     val todayDate = LocalDate.now().format(dateFormatter)
 
     if (serviceDate.isEmpty()) {
-        serviceDate = "$todayDate (Today)"
+        serviceDate = "$todayDate"
     }
-    serviceDescriptions.add(Item(null, null))
+    serviceDescriptions.add(Item2(null, null))
 
     val totalPrice by remember(serviceDescriptions) {
         derivedStateOf {
@@ -204,7 +218,7 @@ fun ServiceForm(
                     datePickerState.selectedDateMillis?.let { millis ->
                         val localDate = LocalDate.ofEpochDay(millis / (24 * 60 * 60 * 1000))
                         serviceDate = if (localDate.format(dateFormatter) == todayDate) {
-                            "${localDate.format(dateFormatter)} (Today)"
+                            "${localDate.format(dateFormatter)}"
                         } else {
                             localDate.format(dateFormatter)
                         }
@@ -329,7 +343,7 @@ fun ServiceForm(
                                 serviceDescriptions[index] = serviceDescriptions[index].copy(name = newText)
 
                                 if (index == serviceDescriptions.lastIndex && newText.isNotEmpty()) {
-                                    serviceDescriptions.add(Item())
+                                    serviceDescriptions.add(Item2())
                                 }
                                 if (index == serviceDescriptions.lastIndex - 1 && newText.isEmpty()) {
                                     serviceDescriptions.removeLastOrNull()
@@ -424,22 +438,22 @@ fun ServiceForm(
 
             Button(
                 onClick = {
-                    val serviceDescriptions2 = serviceDescriptions.toMutableList()
+                    val itemsMap = serviceDescriptions.mapIndexed { index, item -> "item_$index" to item }.toMap()
 
-                    serviceDescriptions2.removeAll {
-                        it.name.isNullOrBlank() || it.price.isNullOrBlank()
-                    }
-                    println("serviceDescriptions2 $serviceDescriptions2")
-//                    onSubmit(
-//                        Service2(
-//                            date = serviceDate,
-//                            items = null,
-//                            mileage = mileage,
-//                            total = totalPrice,
-//                            remark = remarks,
-//                            workshop = workshopName,
-//                        )
-//                    )
+//                    serviceDescriptions2.removeAll {
+//                        it.name.isNullOrBlank() || it.price.isNullOrBlank()
+//                    }
+                    println("itemsMap: $itemsMap")
+                    onSubmit(
+                        Service3(
+                            date = serviceDate,
+                            items = itemsMap,
+                            mileage = mileage,
+                            total = totalPrice,
+                            remark = remarks,
+                            workshop = workshopName,
+                        )
+                    )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -482,7 +496,7 @@ fun PlusIconBox(imageUri: Uri?, onClick: () -> Unit) {
 }
 
 @Composable
-fun ServiceItemForm(index: Int, item: Item, onValueChange: (String) -> Unit, onPriceChange: (String) -> Unit) {
+fun ServiceItemForm(index: Int, item: Item2, onValueChange: (String) -> Unit, onPriceChange: (String) -> Unit) {
     var item by remember { mutableStateOf(item) }
     val dividerColor = Color(0xFFE3EDFB)
 

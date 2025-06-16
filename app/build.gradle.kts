@@ -72,4 +72,5 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.accompanist.permissions)
     implementation(libs.androidx.material.icons.extended)
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.0.20")
 }

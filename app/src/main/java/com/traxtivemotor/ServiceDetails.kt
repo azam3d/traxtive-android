@@ -140,13 +140,9 @@ class ServiceDetails : ComponentActivity() {
                             )
                         }
                     }
-                    if (service != null) {
-                        service.items?.let { map ->
-                            val itemList = map.values.toList()
-
-                            items(itemList.size) { index ->
-                                ServiceItemCard(index, itemList[index])
-                            }
+                    service?.items?.let {
+                        items(it.size) { index ->
+                            ServiceItemCard(index, it[index])
                         }
                     }
                     item {
@@ -194,7 +190,7 @@ class ServiceDetails : ComponentActivity() {
                     )
 
                     Text(
-                        text = "Next service 125456km",
+                        text = service?.remark!!,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontSize = 16.sp
                         ),

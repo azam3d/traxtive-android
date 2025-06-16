@@ -108,6 +108,11 @@ class MotorcyclesActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
 //        parseJson(baseContext,"traxtive-motor.json")
+//        changeServiceStructure(baseContext)
+//        changeProfileStructure(baseContext)
+//        changeMotorcycleStructure(baseContext)
+//        changeServiceUpdateStructure(baseContext)
+//        renameNode(baseContext)
 
         val userId = Firebase.auth.currentUser!!.uid
 //        val userId = "w5uBnQl7GOdCDSYABBtqPOhjJRr1"
@@ -340,8 +345,6 @@ fun PagerAnimateToItem(userId: String, motorcycles: MutableLiveData<List<Motorcy
 //                            color = Color.Red,
 //                        )
                                 .clickable {
-                                    Log.d("Pager", "Clicked on page $page")
-
                                     val intent = Intent(mContext, MotorDetails::class.java)
                                     intent.putExtra("userId", userId)
                                     intent.putExtra("motorId", motor[page].motorId)
@@ -362,8 +365,48 @@ fun PagerAnimateToItem(userId: String, motorcycles: MutableLiveData<List<Motorcy
                                     .align(Alignment.Center),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (motor[page].imageUrl != null) {
-                                    BikeImage(imageUrl = motor[page].imageUrl!!, modifier = Modifier.size(200.dp))
+                                if (motor[page].brand == "Benelli") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.benelli),
+                                        contentDescription = "Benelli",
+                                        modifier = Modifier.size(200.dp)
+                                    )
+                                } else if (motor[page].brand == "Honda") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.honda),
+                                        contentDescription = "Honda",
+                                        modifier = Modifier.size(200.dp)
+                                    )
+                                } else if (motor[page].brand == "Kawasaki") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.kawasaki),
+                                        contentDescription = "Kawasaki",
+                                        modifier = Modifier.size(200.dp)
+                                    )
+                                } else if (motor[page].brand == "Modenas") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.modenas),
+                                        contentDescription = "Modenas",
+                                        modifier = Modifier.size(200.dp)
+                                    )
+                                } else if (motor[page].brand == "Suzuki") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.suzuki),
+                                        contentDescription = "Suzuki",
+                                        modifier = Modifier.size(200.dp)
+                                    )
+                                } else if (motor[page].brand == "SYM") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.sym),
+                                        contentDescription = "SYM",
+                                        modifier = Modifier.size(200.dp)
+                                    )
+                                } else if (motor[page].brand == "Yamaha") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.yamaha),
+                                        contentDescription = "Yamaha",
+                                        modifier = Modifier.size(200.dp)
+                                    )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Motorcycle,
@@ -801,18 +844,56 @@ fun EnhancedAutoCompleteTextField(suggestions: List<Brand>, selectedBrand: (Bran
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Row {
-                                Image(
-                                    painter = painterResource(id = R.drawable.yamaha),
-                                    contentDescription = "Yamaha",
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .border(
-                                            width = 1.dp,
-                                            color = Color.LightGray,
-                                            shape = CircleShape
-                                        ),
-                                    contentScale = ContentScale.Fit
-                                )
+                                if (suggestion.brand == "Benelli") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.benelli),
+                                        contentDescription = "Benelli",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else if (suggestion.brand == "Honda") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.honda),
+                                        contentDescription = "Honda",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else if (suggestion.brand == "Kawasaki") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.kawasaki),
+                                        contentDescription = "Kawasaki",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else if (suggestion.brand == "Modenas") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.modenas),
+                                        contentDescription = "Modenas",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else if (suggestion.brand == "Suzuki") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.suzuki),
+                                        contentDescription = "Suzuki",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else if (suggestion.brand == "SYM") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.sym),
+                                        contentDescription = "SYM",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else if (suggestion.brand == "Yamaha") {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.yamaha),
+                                        contentDescription = "Yamaha",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Motorcycle,
+                                        contentDescription = "Motorbike",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = Color.Blue
+                                    )
+                                }
 
                                 Spacer(modifier = Modifier.width(8.dp))
 

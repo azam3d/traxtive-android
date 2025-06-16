@@ -1,11 +1,14 @@
 package com.traxtivemotor
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.MutableLiveData
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
@@ -76,7 +80,7 @@ class MotorDetails : ComponentActivity() {
 
         setContent {
             TraxtiveTheme(dynamicColor = false) {
-                val servicesLiveData = remember { MutableLiveData<List<Service2>>() }
+                val servicesLiveData = remember { MutableLiveData<List<Service3>>() }
                 val serviceId = remember { MutableLiveData<List<String>>() }
 
                 TopBarNavigation(navigateBack = { finish() })
@@ -121,7 +125,7 @@ fun AppBarSelectionActions(
     )
 }
 
-fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: MutableLiveData<List<Service2>>, serviceIdsLiveData: MutableLiveData<List<String>>) {
+fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: MutableLiveData<List<Service3>>, serviceIdsLiveData: MutableLiveData<List<String>>) {
     println("fetchFirebaseData")
 
     val database = Firebase.database
@@ -132,7 +136,7 @@ fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: Mutable
         override fun onDataChange(snapshot: DataSnapshot) {
             var totalCount = 0
             var bigTotal = 0
-            val services = mutableListOf<Service2>()
+            val services = mutableListOf<Service3>()
             val serviceIds = mutableListOf<String>()
 
             for (serviceSnapshot in snapshot.children) {
@@ -143,9 +147,9 @@ fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: Mutable
                 println("Service ID: ${serviceSnapshot.key}")
                 serviceIds.add(serviceSnapshot.key!!)
 
-                val serviceUpdate2 = serviceSnapshot.getValue(Service2::class.java)
+                val serviceUpdate2 = serviceSnapshot.getValue(Service3::class.java)
                 println("- serviceUpdate2: $serviceUpdate2")
-                services.add(serviceUpdate2 ?: Service2())
+                services.add(serviceUpdate2 ?: Service3())
 
 //                    println("\n\n\n")
             }
@@ -163,9 +167,14 @@ fun fetchFirebaseData(userId: String, motorId: String, servicesLiveData: Mutable
 }
 
 @Composable
-fun AllServices(motor: Motorcycle?, servicesLiveData: MutableLiveData<List<Service2>>, serviceIds: MutableLiveData<List<String>>) {
+fun AllServices(motor: Motorcycle?, servicesLiveData: MutableLiveData<List<Service3>>, serviceIds: MutableLiveData<List<String>>) {
     val mContext = LocalContext.current
     val services by servicesLiveData.observeAsState(initial = emptyList())
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            fetchFirebaseData(Firebase.auth.currentUser?.uid!!, motor?.motorId!!, servicesLiveData, serviceIds)
+        }
+    }
 
     Column(modifier = Modifier
         .fillMaxWidth()
@@ -208,7 +217,13 @@ fun AllServices(motor: Motorcycle?, servicesLiveData: MutableLiveData<List<Servi
                 }
                 services?.let {
                     items(it.size) { index ->
-                        val service = it[index]
+                        val items: List<Item>? = it[index].items?.map { (_, item) ->
+                            Item(
+                                name = item.name,
+                                price = item.price
+                            )
+                        }
+                        val service = Service2(it[index].date, items, it[index].mileage, it[index].total, it[index].remark, it[index].workshop, it[index].receipt)
                         PlantCard(motor, service, serviceIds.value?.get(index) ?: "")
                     }
                 }
@@ -222,7 +237,8 @@ fun AllServices(motor: Motorcycle?, servicesLiveData: MutableLiveData<List<Servi
             Button(onClick = {
                 val intent = Intent(mContext, AddNewService::class.java)
                 intent.putExtra("motor", motor)
-                mContext.startActivity(intent)
+                launcher.launch(intent)
+//                mContext.startActivity(intent)
             }, modifier = Modifier
                 .padding(top = 24.dp)
                 .size(width = 240.dp, height = 48.dp),
