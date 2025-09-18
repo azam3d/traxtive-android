@@ -96,8 +96,12 @@ class AddNewService : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val motor = intent.getParcelableExtra("motor") as Motorcycle?
-        Log.d("motor", motor.toString())
+        val motorFromIntent = intent.getParcelableExtra<Motorcycle>("motor")
+        val serviceIdFromIntent = intent.getStringExtra("serviceId") // ID of service to edit, or null if new
+        val serviceDataFromIntent = intent.getParcelableExtra<Service2>("service")
+
+        Log.d("AddNewService", "Received motorId: ${motorFromIntent?.motorId}, serviceId: $serviceIdFromIntent")
+        Log.d("AddNewService", "Received serviceDataFromIntent: $serviceDataFromIntent")
 
         enableEdgeToEdge()
 
@@ -108,51 +112,123 @@ class AddNewService : ComponentActivity() {
                 var imageUri by remember { mutableStateOf<Uri?>(null) }
 
                 ServiceForm(
-                    motor,
-                    imageUri,
+                    motor = motorFromIntent,
+                    initialServiceData = serviceDataFromIntent,
+                    imageUri = imageUri,
                     onBackPressed = { finish() },
                     onShowBottomSheetChange = { newValue ->
                         showBottomSheet = newValue
                     },
-                    onSubmit = { service ->
-                        println("onSubmit $service")
-                        println(service.date)
-                        println(service.items)
-                        println(service.mileage)
-                        println(service.total)
-                        println(service.remark)
-                        println(service.workshop)
-
+                    onSubmit = { submittedServiceData -> // submittedServiceData is of type Service3
                         val database = Firebase.database
-                        val userId = Firebase.auth.currentUser?.uid
+                        val currentAuthUserId = Firebase.auth.currentUser?.uid
+                        val currentMotorActualId = motorFromIntent?.motorId
 
-                        Log.d("userId", userId.toString())
-
-                        val items = null
-                        val service3 = Service3(service.date, items, service.mileage, service.total, service.remark, service.workshop)
-                        val motorId = motor?.motorId ?: return@ServiceForm
-                        val serviceRef = database.getReference("services")
-                        val serviceId = serviceRef.child(userId!!).child(motorId).push()
-                        serviceId.setValue(service3)
-
-                        service.items?.forEach { (_, item) ->
-                            serviceId.child("items").push().setValue(item)
+                        if (currentAuthUserId == null) {
+                            Log.e("AddNewService", "User not authenticated.")
+                            setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "User not authenticated"))
+                            finish()
+                            return@ServiceForm
+                        }
+                        if (currentMotorActualId == null) {
+                            Log.e("AddNewService", "Motor ID is missing.")
+                            setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "Motor ID missing"))
+                            finish()
+                            return@ServiceForm
                         }
 
-                        Log.d("ServiceUpload", Gson().toJson(service3))
-
-//                        Log.d("serviceId", serviceId.toString())
-//                        serviceRef.setValue(service3)
+                        val serviceDetailsMap = mapOf(
+                            "date" to submittedServiceData.date,
+                            "mileage" to submittedServiceData.mileage,
+                            "total" to submittedServiceData.total,
+                            "remark" to submittedServiceData.remark,
+                            "workshop" to submittedServiceData.workshop
+                        )
+                        val serviceItemsListForDb = submittedServiceData.items?.values?.toList() ?: emptyList<Item2>()
 
                         val resultIntent = Intent()
-                        setResult(RESULT_OK, resultIntent)
-                        finish()
+                        // Map List<Item2> to List<Item> for Service2
+                        val finalServiceItemsForDisplay = serviceItemsListForDb.map { item2 ->
+                            Item(
+                                name = item2.name,
+                                price = item2.price
+                            )
+                        }
+                        val finalServiceForDisplay = Service2(
+                            date = submittedServiceData.date,
+                            workshop = submittedServiceData.workshop,
+                            mileage = submittedServiceData.mileage,
+                            total = submittedServiceData.total,
+                            remark = submittedServiceData.remark,
+                            items = finalServiceItemsForDisplay
+                        )
+                        resultIntent.putExtra("updatedService", finalServiceForDisplay)
 
-                        // use serviceId to setValue of date, workshop, mileage, remarks, item[], price[], totalPrice
+                        if (serviceIdFromIntent != null && serviceIdFromIntent.isNotBlank()) {
+                            // EDIT MODE
+                            Log.d("AddNewService", "Updating service: $serviceIdFromIntent for motor: $currentMotorActualId")
+                            val serviceNodeRef = database.getReference("services")
+                                .child(currentAuthUserId)
+                                .child(currentMotorActualId)
+                                .child(serviceIdFromIntent)
 
-//                        if (userId != null) {
-//                            database.reference.child("services").child(userId).child(motor?.motorId!!).child(serviceId).setValue(service2)
-//                        }
+                            serviceNodeRef.updateChildren(serviceDetailsMap).addOnCompleteListener { updateTask ->
+                                if (updateTask.isSuccessful) {
+                                    val itemsNodeRef = serviceNodeRef.child("items")
+                                    itemsNodeRef.removeValue().addOnCompleteListener { removeItemTask ->
+                                        if (removeItemTask.isSuccessful) {
+                                            serviceItemsListForDb.forEach { itemData -> // Use serviceItemsListForDb (List<Item2>) for Firebase
+                                                itemsNodeRef.push().setValue(itemData)
+                                            }
+                                            Log.d("AddNewService", "Service '$serviceIdFromIntent' and items updated.")
+                                            resultIntent.putExtra("updatedServiceId", serviceIdFromIntent)
+                                            setResult(Activity.RESULT_OK, resultIntent)
+                                        } else {
+                                            Log.e("AddNewService", "Failed to clear items for '$serviceIdFromIntent'.", removeItemTask.exception)
+                                            resultIntent.putExtra("updatedServiceId", serviceIdFromIntent)
+                                            resultIntent.putExtra("warning", "Failed to update service items fully")
+                                            setResult(Activity.RESULT_OK, resultIntent) 
+                                        }
+                                        finish()
+                                    }
+                                } else {
+                                    Log.e("AddNewService", "Failed to update service details for '$serviceIdFromIntent'.", updateTask.exception)
+                                    setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "Failed to update service details"))
+                                    finish()
+                                }
+                            }
+                        } else {
+                            // ADD NEW MODE
+                            Log.d("AddNewService", "Adding new service for motor: $currentMotorActualId")
+                            val motorServicesRef = database.getReference("services")
+                                .child(currentAuthUserId)
+                                .child(currentMotorActualId)
+
+                            val newServiceNodeRef = motorServicesRef.push()
+                            val newServiceKey = newServiceNodeRef.key
+
+                            if (newServiceKey == null) {
+                                Log.e("AddNewService", "Failed to generate new service key from Firebase.")
+                                setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "Failed to generate service key"))
+                                finish()
+                                return@ServiceForm
+                            }
+
+                            newServiceNodeRef.setValue(serviceDetailsMap).addOnCompleteListener { addTask ->
+                                if (addTask.isSuccessful) {
+                                    serviceItemsListForDb.forEach { itemData -> // Use serviceItemsListForDb (List<Item2>) for Firebase
+                                        newServiceNodeRef.child("items").push().setValue(itemData)
+                                    }
+                                    Log.d("AddNewService", "New service added with key: $newServiceKey")
+                                    resultIntent.putExtra("updatedServiceId", newServiceKey)
+                                    setResult(Activity.RESULT_OK, resultIntent)
+                                } else {
+                                    Log.e("AddNewService", "Failed to add new service.", addTask.exception)
+                                    setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "Failed to add new service"))
+                                }
+                                finish()
+                            }
+                        }
                     }
                 )
                 if (showBottomSheet) {
@@ -180,31 +256,49 @@ class AddNewService : ComponentActivity() {
 @Composable
 fun ServiceForm(
     motor: Motorcycle?,
+    initialServiceData: Service2?, // Added new parameter for existing service data
     imageUri: Uri?,
     onBackPressed: () -> Unit,
     onShowBottomSheetChange: (Boolean) -> Unit,
     onSubmit: (Service3) -> Unit
 ) {
     val mContext = LocalContext.current
-    var serviceDate by remember { mutableStateOf("") }
-    var workshopName by remember { mutableStateOf("") }
-    var mileage by remember { mutableStateOf("") }
-    val serviceDescriptions = remember { mutableStateListOf<Item2>() }
-    var remarks by remember { mutableStateOf("") }
-    var showDatePicker by remember { mutableStateOf(false) }
-    val scrollState = rememberScrollState()
-
     val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
     val todayDate = LocalDate.now().format(dateFormatter)
 
-    if (serviceDate.isEmpty()) {
-        serviceDate = "$todayDate"
+    var serviceDate by remember { mutableStateOf(initialServiceData?.date?.takeIf { it.isNotBlank() } ?: todayDate) }
+    var workshopName by remember { mutableStateOf(initialServiceData?.workshop ?: "") }
+    var mileage by remember { mutableStateOf(initialServiceData?.mileage ?: "") }
+    var remarks by remember { mutableStateOf(initialServiceData?.remark ?: "") }
+
+    val initialItems = initialServiceData?.items
+        ?.filterNotNull()
+        ?.mapNotNull { item ->
+            // item is of type Item here from Service2
+            val name = item.name
+            val price = item.price?.toString() // Convert Double? price from Item to String? for Item2
+            if (name != null) Item2(name, price) else null
+        }
+        ?.toMutableList()
+
+    val serviceDescriptions = remember {
+        mutableStateListOf<Item2>().apply {
+            if (initialItems != null && initialItems.isNotEmpty()) {
+                addAll(initialItems)
+                // Add an empty item at the end for editing/adding new items easily
+                add(Item2(null, null))
+            } else {
+                add(Item2(null, null))
+            }
+        }
     }
-    serviceDescriptions.add(Item2(null, null))
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     val totalPrice by remember(serviceDescriptions) {
         derivedStateOf {
-            serviceDescriptions.sumOf { it.price?.toIntOrNull() ?: 0 }.toString()
+            serviceDescriptions.sumOf { it.price?.toDoubleOrNull() ?: 0.0 }.toString()
         }
     }
 
@@ -218,7 +312,7 @@ fun ServiceForm(
                     datePickerState.selectedDateMillis?.let { millis ->
                         val localDate = LocalDate.ofEpochDay(millis / (24 * 60 * 60 * 1000))
                         serviceDate = if (localDate.format(dateFormatter) == todayDate) {
-                            "${localDate.format(dateFormatter)}"
+                            "Today, ${localDate.format(dateFormatter)}"
                         } else {
                             localDate.format(dateFormatter)
                         }
@@ -242,7 +336,7 @@ fun ServiceForm(
         containerColor = Color(230, 239, 252, 255),
         topBar = {
             TopAppBar(
-                title = { Text("Add New Service") },
+                title = { Text(if (initialServiceData != null) "Edit Service" else "Add New Service") },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = Color.Black, navigationIconContentColor = Color.Black),
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
@@ -341,16 +435,21 @@ fun ServiceForm(
                         ServiceItemForm(index, item,
                             onValueChange = { newText ->
                                 serviceDescriptions[index] = serviceDescriptions[index].copy(name = newText)
-
+                                // Auto-add a new row if typing in the last item's name field
                                 if (index == serviceDescriptions.lastIndex && newText.isNotEmpty()) {
                                     serviceDescriptions.add(Item2())
                                 }
-                                if (index == serviceDescriptions.lastIndex - 1 && newText.isEmpty()) {
+                                // Auto-remove the last row if the second to last item's name is cleared (and price is also empty)
+                                if (index == serviceDescriptions.lastIndex - 1 && newText.isEmpty() && serviceDescriptions.getOrNull(index)?.price.isNullOrEmpty() && serviceDescriptions.size > 1) {
                                     serviceDescriptions.removeLastOrNull()
                                 }
                             },
                             onPriceChange = { newPrice ->
                                 serviceDescriptions[index] = serviceDescriptions[index].copy(price = newPrice)
+                                // Auto-remove the last row if the second to last item's price is cleared (and name is also empty)
+                                if (index == serviceDescriptions.lastIndex - 1 && newPrice.isEmpty() && serviceDescriptions.getOrNull(index)?.name.isNullOrEmpty() && serviceDescriptions.size > 1) {
+                                    serviceDescriptions.removeLastOrNull()
+                                }
                             }
                         )
                     }
@@ -372,46 +471,6 @@ fun ServiceForm(
                     }
                 }
             }
-
-//            Spacer(modifier = Modifier.height(24.dp))
-//
-//            Text(
-//                text = "Picture (optional)",
-//                style = MaterialTheme.typography.titleMedium,
-//                fontWeight = FontWeight.Bold
-//            )
-//
-//            Spacer(modifier = Modifier.height(8.dp))
-//
-//            PlusIconBox(imageUri = imageUri, onClick = {
-//                if (imageUri == null) {
-//                    onShowBottomSheetChange(true)
-//                } else {
-//                    val intent = Intent(mContext, PhotoViewer::class.java)
-//                    intent.putExtra("imageUri", imageUri)
-//                    mContext.startActivity(intent)
-//                }
-//            })
-
-//            Button(enabled = if (imageUri != null) true else false,
-//                modifier = Modifier
-//                    .size(70.dp, 36.dp)
-//                    .padding(top = 4.dp),
-//                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-//                shape = RoundedCornerShape(6.dp),
-//                contentPadding = PaddingValues(0.dp),
-//                onClick = {
-////                    imageUri = null
-//                }
-//            ) {
-//                Icon(
-//                    modifier = Modifier.size(16.dp),
-//                    imageVector = Icons.Default.Delete,
-//                    contentDescription = "Delete",
-//                    tint = Color.LightGray
-//                )
-//                Text(text = "Delete", color = Color.LightGray)
-//            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -438,16 +497,19 @@ fun ServiceForm(
 
             Button(
                 onClick = {
-                    val itemsMap = serviceDescriptions.mapIndexed { index, item -> "item_$index" to item }.toMap()
+                    val finalItemsForService3 = serviceDescriptions
+                        .filter { !(it.name.isNullOrBlank() && it.price.isNullOrBlank()) }
+                        .mapIndexedNotNull { index, item ->
+                             // Ensure item.name is not null; provide a default or handle error if necessary
+                            item.name?.let { itemName ->
+                                "item_$index" to item
+                            }
+                        }.toMap()
 
-//                    serviceDescriptions2.removeAll {
-//                        it.name.isNullOrBlank() || it.price.isNullOrBlank()
-//                    }
-                    println("itemsMap: $itemsMap")
                     onSubmit(
                         Service3(
-                            date = serviceDate,
-                            items = itemsMap,
+                            date = serviceDate.replace("Today, ", ""),
+                            items = finalItemsForService3, 
                             mileage = mileage,
                             total = totalPrice,
                             remark = remarks,
@@ -497,8 +559,12 @@ fun PlusIconBox(imageUri: Uri?, onClick: () -> Unit) {
 
 @Composable
 fun ServiceItemForm(index: Int, item: Item2, onValueChange: (String) -> Unit, onPriceChange: (String) -> Unit) {
-    var item by remember { mutableStateOf(item) }
+    var currentItem by remember { mutableStateOf(item) }
     val dividerColor = Color(0xFFE3EDFB)
+
+    LaunchedEffect(item) {
+        currentItem = item
+    }
 
     Row(modifier = Modifier
         .padding(vertical = 8.dp)
@@ -518,8 +584,8 @@ fun ServiceItemForm(index: Int, item: Item2, onValueChange: (String) -> Unit, on
                     strokeWidth = 1.dp.toPx()
                 )
             },
-            "Service Item", item.name, "${index + 1}. ", KeyboardOptions(keyboardType = KeyboardType.Text)) { newText ->
-            item = item.copy(name = newText)
+            "Service Item", currentItem.name, "${index + 1}. ", KeyboardOptions(keyboardType = KeyboardType.Text)) { newText ->
+            currentItem = currentItem.copy(name = newText)
             onValueChange(newText)
         }
 
@@ -534,8 +600,8 @@ fun ServiceItemForm(index: Int, item: Item2, onValueChange: (String) -> Unit, on
                                 strokeWidth = 1.dp.toPx()
                             )
                         },
-            "0", item.price, "RM", KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Default)) { newText ->
-            item = item.copy(price = newText)
+            "0", currentItem.price, "RM", KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Default)) { newText ->
+            currentItem = currentItem.copy(price = newText)
             onPriceChange(newText)
         }
     }
@@ -558,7 +624,7 @@ fun ItemTextField(modifier: Modifier, placeholder: String, value: String?, prefi
                 contentAlignment = Alignment.CenterStart,
                 modifier = Modifier.padding(vertical = 8.dp),
             ) {
-                if (value == null) {
+                if ((value ?: "").isEmpty()) {
                     Row {
                         Text(
                             text = prefix,
@@ -572,12 +638,20 @@ fun ItemTextField(modifier: Modifier, placeholder: String, value: String?, prefi
                             fontSize = 16.sp
                         )
                     }
+                } else {
+                     Row { // Show prefix even when there is value
+                        Text(
+                            text = prefix,
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
-                innerTextField() // The actual text field
+                innerTextField()
             }
         },
         keyboardOptions = keyboardOptions,
-        visualTransformation = PrefixTransformation(prefix)
+        visualTransformation = if ((value ?: "").isNotEmpty()) PrefixTransformation(prefix) else VisualTransformation.None
     )
 }
 
@@ -588,7 +662,7 @@ class PrefixTransformation(val prefix: String) : VisualTransformation {
 }
 
 fun PrefixFilter(number: AnnotatedString, prefix: String): TransformedText {
-    var out = prefix + number.text
+    val out = prefix + number.text
     val prefixOffset = prefix.length
 
     val numberOffsetTranslator = object : OffsetMapping {
@@ -604,19 +678,14 @@ fun PrefixFilter(number: AnnotatedString, prefix: String): TransformedText {
     return TransformedText(AnnotatedString(out), numberOffsetTranslator)
 }
 
-//@Preview
-//@Composable
-//fun PreviewServiceItemForm() {
-//    ServiceItemForm(index = 0, item = Item("Example Service", "10.50"),
-//        onValueChange = { })
-//}
-
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     TraxtiveTheme {
         ServiceForm(
-            Motorcycle(), null,
+            motor = Motorcycle(),
+            initialServiceData = null,
+            imageUri = null,
             onBackPressed = { /* Handle back navigation */ },
             onShowBottomSheetChange = { /* Handle bottom sheet visibility change */ },
             onSubmit = { service ->
@@ -631,7 +700,7 @@ fun EnhancedCapsuleTextField(value: String,
                              keyboardOptions: KeyboardOptions,
                              onTextChange: (String) -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val isError by remember { mutableStateOf(false) }  // Set this based on validation logic
+    val isError by remember { mutableStateOf(false) }
 
     val textColor by animateColorAsState(
         targetValue = if (isError) Color.Red else Color.Black
@@ -658,7 +727,7 @@ fun EnhancedCapsuleTextField(value: String,
             }
             .padding(
                 horizontal = 16.dp,
-                vertical = 8.dp
+                vertical = 8.dp 
             ),
         singleLine = true,
         cursorBrush = SolidColor(Color.Gray),
@@ -671,9 +740,9 @@ fun EnhancedCapsuleTextField(value: String,
         decorationBox = { innerTextField ->
             Box(
                 contentAlignment = Alignment.CenterStart,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize() 
             ) {
-                innerTextField() // The actual text field
+                innerTextField() 
             }
         }
     )
@@ -704,6 +773,18 @@ fun CameraBottomSheet(
             context,
             Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
+
+        hasGalleryPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_MEDIA_IMAGES
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     fun createImageFile(): File? {
@@ -722,85 +803,82 @@ fun CameraBottomSheet(
                 onAction(it.toString())
             }
         } else {
-            photoFile?.delete()
+            photoFile?.delete() 
         }
-        onDismiss()
+        onDismiss() 
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
             onAction(it.toString())
-            onDismiss()
         }
+        onDismiss() 
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasCameraPermission = isGranted
-
         if (isGranted) {
-            // Retry camera launch after permission granted
             photoFile = createImageFile()
             photoFile?.let { file ->
                 try {
                     imageUri = FileProvider.getUriForFile(
                         context,
-                        "${context.packageName}.provider",
+                        "${context.packageName}.provider", 
                         file
                     )
                     imageUri?.let { uri ->
                         cameraLauncher.launch(uri)
                     }
                 } catch (e: IllegalArgumentException) {
-                    e.printStackTrace()
+                    Log.e("CameraBottomSheet", "FileProvider URI error: ${e.message}")
+                    onDismiss()
                 }
-            }
+            } ?: onDismiss() 
+        } else {
+            onDismiss() 
         }
     }
 
-    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+    val galleryPermissionRequestLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasGalleryPermission = isGranted
-
         if (isGranted) {
             galleryLauncher.launch("image/*")
+        } else {
+            onDismiss()
         }
     }
+
 
     Column(modifier = Modifier
         .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Button(
             onClick = {
-                        println("open camera")
-
-                        if (hasCameraPermission) {
-                            println("hasCameraPermission")
-//                            imageUri = createImageFile(context)
-//                            cameraLauncher.launch(imageUri!!)
-
-                            photoFile = createImageFile()
-                            photoFile?.let { file ->
-                                try {
-                                    imageUri = FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.provider",
-                                        file
-                                    )
-                                    imageUri?.let { uri ->
-                                        cameraLauncher.launch(uri)
-                                    }
-                                } catch (e: IllegalArgumentException) {
-                                    e.printStackTrace()
-                                }
+                if (hasCameraPermission) {
+                    photoFile = createImageFile()
+                    photoFile?.let { file ->
+                        try {
+                            imageUri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.provider",
+                                file
+                            )
+                            imageUri?.let { uri ->
+                                cameraLauncher.launch(uri)
                             }
-                        } else {
-                            println("doesn't hasCameraPermission")
-                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        } catch (e: IllegalArgumentException) {
+                             Log.e("CameraBottomSheet", "FileProvider URI error on direct launch: ${e.message}")
+                             onDismiss()
                         }
-                      },
+                    } ?: onDismiss()
+                } else {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(26, 213, 255, 255))
         ) {
@@ -814,18 +892,18 @@ fun CameraBottomSheet(
 
         Button(
             onClick = {
-                        println("open photo library")
-
-                        if (hasGalleryPermission) {
-                            println("hasGalleryPermission")
-                            galleryLauncher.launch("image/*")
-                        } else {
-                            println("doesn't hasGalleryPermission")
-                            galleryPermissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
-                        }
-                      },
-            modifier = Modifier
-                .fillMaxWidth(),
+                val permissionToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Manifest.permission.READ_MEDIA_IMAGES
+                } else {
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                }
+                if (hasGalleryPermission) {
+                    galleryLauncher.launch("image/*")
+                } else {
+                    galleryPermissionRequestLauncher.launch(permissionToRequest)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(26, 213, 255, 255))
         ) {
             Icon(
@@ -837,9 +915,3 @@ fun CameraBottomSheet(
         }
     }
 }
-
-//private fun createImageFile(context: Context): Uri {
-//    val storageDir: File? = context.getExternalFilesDir(null)
-//    val imageFile = File.createTempFile("JPEG_${System.currentTimeMillis()}_", ".jpg", storageDir)
-//    return FileProvider.getUriForFile(context, "${context.packageName}.provider", imageFile)
-//}

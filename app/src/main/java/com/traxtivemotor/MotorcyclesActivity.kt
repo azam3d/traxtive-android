@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Motorcycle
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -57,6 +58,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -65,6 +67,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -115,6 +118,8 @@ class MotorcyclesActivity : ComponentActivity() {
 //        renameNode(baseContext)
 
         val userId = Firebase.auth.currentUser!!.uid
+        val motorcyclesLiveData = MutableLiveData<List<Motorcycle>>()
+        fetchFirebaseData(userId, motorcyclesLiveData)
 //        val userId = "w5uBnQl7GOdCDSYABBtqPOhjJRr1"
 //        val userId = "wNbbFw1vR2hghglOxAT7w3zET4x1"
 //        val userId = "000hoj3BEpgrvUIDwg7xhAr1vUu1"
@@ -122,11 +127,7 @@ class MotorcyclesActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TraxtiveTheme {
-                val name = remember { mutableStateOf("email") }
-                val motorcyclesLiveData = remember { MutableLiveData<List<Motorcycle>>() }
                 var showBottomSheet by remember { mutableStateOf(false) }
-
-                fetchFirebaseData(userId, motorcyclesLiveData)
 
                 PagerAnimateToItem(userId, motorcycles = motorcyclesLiveData,
                     onShowBottomSheetChange = { newValue ->
@@ -696,7 +697,8 @@ fun ProfileMenu() {
             .fillMaxWidth()
             .padding(top = 32.dp, end = 16.dp)
     ) {
-        IconButton(onClick = { expanded = !expanded },
+        IconButton(
+            onClick = { expanded = !expanded },
             modifier = Modifier.align(Alignment.TopEnd)
         ) {
             Icon(Icons.Default.Person, contentDescription = "More options", modifier = Modifier.size(32.dp), tint = Color.White)
