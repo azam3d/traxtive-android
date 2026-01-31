@@ -67,6 +67,8 @@ dependencies {
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
 
     implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.storage.ktx)
+    implementation(libs.firebase.appcheck.debug)
     implementation(libs.firebase.analytics)
     implementation(libs.accompanist.pager)
     implementation(libs.gson)

@@ -1,20 +1,24 @@
 package com.traxtivemotor
 
 import android.content.Context
+import android.net.Uri
 import android.os.Parcelable
 import android.util.Log
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.ktx.database
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.database.database
+import com.google.firebase.database.Exclude
+//import com.google.firebase.ktx.Firebase
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import com.google.gson.Gson
 import kotlin.reflect.full.memberProperties
 import kotlinx.parcelize.Parcelize
-import java.io.Serializable
 
 @Parcelize
 data class Motorcycle(
@@ -134,6 +138,7 @@ data class Item2(
 
 @Parcelize
 data class Service2(
+    @get:Exclude val id: String? = null,
     val date: String? = null,
     val items: List<Item>? = null,
     val mileage: String? = null,
@@ -144,6 +149,7 @@ data class Service2(
 ): Parcelable
 
 data class Service3(
+    @get:Exclude val id: String? = null,
     val date: String? = null,
     val items: Map<String, Item2>? = null,
     val mileage: String? = null,
@@ -215,7 +221,7 @@ fun changeServiceStructure(context: Context) {
                         val service = serviceSnapshot.getValue(Service::class.java)
 //                        Log.d("Firebase", "service: $service")
 
-                        val service3 = Service3(service?.date, null, service?.mileage, service?.price, service?.remark, service?.workshop, service?.receipt)
+                        val service3 = Service3("", service?.date, null, service?.mileage, service?.price, service?.remark, service?.workshop, service?.receipt)
                         val servicesRef2 = database.getReference("services-v2")
                         servicesRef2.child(userId).child(motorId).child(serviceId).setValue(service3)
 

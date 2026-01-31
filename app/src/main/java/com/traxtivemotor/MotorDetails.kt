@@ -93,12 +93,15 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.MutableLiveData
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.database
 import com.google.firebase.database.ktx.database
-import com.google.firebase.ktx.Firebase
+//import com.google.firebase.ktx.Firebase
 import com.traxtivemotor.ui.theme.TraxtiveTheme
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -176,24 +179,38 @@ fun fetchServices(userId: String, motorId: String, servicesLiveData: MutableLive
             val services = mutableListOf<Service3>()
             val serviceIds = mutableListOf<String>()
 
+            println("\n---------------")
             for (serviceSnapshot in snapshot.children) {
                 totalCount++
+
                 if (totalCount > bigTotal) {
                     bigTotal = totalCount
                 }
-                println("Service ID: ${serviceSnapshot.key}")
+
+                println("\nService ID: ${serviceSnapshot.key}")
                 serviceIds.add(serviceSnapshot.key!!)
 
                 val service = serviceSnapshot.getValue(Service3::class.java)
+                val service2 = serviceSnapshot.toService3()
                 println("- service: $service")
-                services.add(service ?: Service3())
+                println("- workshop: ${service?.workshop}")
+                println("- service2: $service2")
 
-//                    println("\n\n\n")
+//                println(serviceSnapshot)
+
+//                services.add(service ?: Service3())
+                services.add(service2 ?: Service3())
             }
             totalCount = 0
-            servicesLiveData.value = services
-            serviceIdsLiveData.value = serviceIds
 
+            val formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+            val sortedServices = services.sortedByDescending {
+                LocalDate.parse(it.date, formatter)
+            }
+            servicesLiveData.value = sortedServices
+//            serviceIdsLiveData.value = serviceIds
+
+            println("---------------\n\n")
             println("bigTotal: $bigTotal")
         }
 
@@ -201,6 +218,12 @@ fun fetchServices(userId: String, motorId: String, servicesLiveData: MutableLive
             Log.w("Firebase", "Failed to read value.", error.toException())
         }
     })
+}
+
+fun DataSnapshot.toService3(): Service3? {
+    return getValue(Service3::class.java)?.copy(
+        id = key
+    )
 }
 
 fun fetchServiceUpdate(userId: String, motorId: String, serviceUpdateLiveData: MutableLiveData<ServiceUpdate2>) {
@@ -246,6 +269,11 @@ fun AllServices(motor: Motorcycle?,
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             fetchServices(Firebase.auth.currentUser?.uid!!, motor?.motorId!!, servicesLiveData, serviceIds)
+
+            val updatedService = result.data?.getParcelableExtra<Service2>("updatedService")
+            if (updatedService != null) {
+                println("Updated service: $updatedService")
+            }
         }
     }
     var showDialog by remember { mutableStateOf(false) }
@@ -350,7 +378,7 @@ fun AllServices(motor: Motorcycle?,
                                 price = item.price
                             )
                         }
-                        val service = Service2(it[index].date, items, it[index].mileage, it[index].total, it[index].remark, it[index].workshop, it[index].receipt)
+                        val service = Service2(it[index].id, it[index].date, items, it[index].mileage, it[index].total, it[index].remark, it[index].workshop, it[index].receipt.toString())
                         ServiceCard(motorId, motor, service, serviceIds.value?.get(index) ?: "", launcher)
                     }
                 }
@@ -590,10 +618,10 @@ fun ServiceCard(motorId: String, motor: Motorcycle?, service: Service2, serviceI
         .padding(vertical = 8.dp)
         .fillMaxWidth()
         .clickable {
-            println(serviceId)
+            println("serviceId motordetails: ${service.id}")
 
             val intent = Intent(mContext, ServiceDetails::class.java)
-            intent.putExtra("serviceId", serviceId)
+            intent.putExtra("serviceId", service.id)
             intent.putExtra("service", service)
             intent.putExtra("motorId", motorId)
             intent.putExtra("motor", motor)

@@ -96,13 +96,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.MutableLiveData
 import coil.compose.AsyncImage
+import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.auth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.database
 import com.google.firebase.database.ktx.database
-import com.google.firebase.ktx.Firebase
+//import com.google.firebase.ktx.Firebase
 import com.traxtivemotor.ui.theme.TraxtiveTheme
 import kotlinx.coroutines.launch
 
@@ -119,10 +122,13 @@ class MotorcyclesActivity : ComponentActivity() {
 
         val userId = Firebase.auth.currentUser!!.uid
         val motorcyclesLiveData = MutableLiveData<List<Motorcycle>>()
-        fetchFirebaseData(userId, motorcyclesLiveData)
+
+//        val userId = "02m2CTWSW8PNlwlVM7bTNo0d0522"
 //        val userId = "w5uBnQl7GOdCDSYABBtqPOhjJRr1"
 //        val userId = "wNbbFw1vR2hghglOxAT7w3zET4x1"
 //        val userId = "000hoj3BEpgrvUIDwg7xhAr1vUu1"
+//        val userId = "02m2CTWSW8PNlwlVM7bTNo0d0522"
+        fetchFirebaseData(userId, motorcyclesLiveData)
 
         enableEdgeToEdge()
         setContent {

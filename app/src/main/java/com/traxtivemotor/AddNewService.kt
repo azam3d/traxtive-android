@@ -2,7 +2,6 @@
 
 package com.traxtivemotor
 
-import android.app.Activity
 import android.content.Context
 import android.Manifest
 import android.content.Intent
@@ -86,9 +85,12 @@ import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import androidx.core.net.toUri
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.database.database
 import com.google.firebase.database.ktx.database
-import com.google.firebase.ktx.Firebase
+//import com.google.firebase.ktx.Firebase
 import com.google.gson.Gson
 
 class AddNewService : ComponentActivity() {
@@ -122,17 +124,19 @@ class AddNewService : ComponentActivity() {
                     onSubmit = { submittedServiceData -> // submittedServiceData is of type Service3
                         val database = Firebase.database
                         val currentAuthUserId = Firebase.auth.currentUser?.uid
-                        val currentMotorActualId = motorFromIntent?.motorId
+                        val currentMotorId = motorFromIntent?.motorId
+
+                        Log.d("AddNewService", "Submitting service with userId: $currentAuthUserId")
 
                         if (currentAuthUserId == null) {
                             Log.e("AddNewService", "User not authenticated.")
-                            setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "User not authenticated"))
+                            setResult(RESULT_CANCELED, Intent().putExtra("error", "User not authenticated"))
                             finish()
                             return@ServiceForm
                         }
-                        if (currentMotorActualId == null) {
+                        if (currentMotorId == null) {
                             Log.e("AddNewService", "Motor ID is missing.")
-                            setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "Motor ID missing"))
+                            setResult(RESULT_CANCELED, Intent().putExtra("error", "Motor ID missing"))
                             finish()
                             return@ServiceForm
                         }
@@ -142,7 +146,8 @@ class AddNewService : ComponentActivity() {
                             "mileage" to submittedServiceData.mileage,
                             "total" to submittedServiceData.total,
                             "remark" to submittedServiceData.remark,
-                            "workshop" to submittedServiceData.workshop
+                            "workshop" to submittedServiceData.workshop,
+                            "receipt" to submittedServiceData.receipt.toString()
                         )
                         val serviceItemsListForDb = submittedServiceData.items?.values?.toList() ?: emptyList<Item2>()
 
@@ -160,21 +165,22 @@ class AddNewService : ComponentActivity() {
                             mileage = submittedServiceData.mileage,
                             total = submittedServiceData.total,
                             remark = submittedServiceData.remark,
-                            items = finalServiceItemsForDisplay
+                            items = finalServiceItemsForDisplay,
+                            receipt = null // submittedServiceData.receipt.toString()
                         )
                         resultIntent.putExtra("updatedService", finalServiceForDisplay)
 
                         if (serviceIdFromIntent != null && serviceIdFromIntent.isNotBlank()) {
-                            // EDIT MODE
-                            Log.d("AddNewService", "Updating service: $serviceIdFromIntent for motor: $currentMotorActualId")
+                            Log.d("AddNewService", "Updating service: $serviceIdFromIntent for motor: $currentMotorId")
                             val serviceNodeRef = database.getReference("services")
                                 .child(currentAuthUserId)
-                                .child(currentMotorActualId)
+                                .child(currentMotorId)
                                 .child(serviceIdFromIntent)
 
                             serviceNodeRef.updateChildren(serviceDetailsMap).addOnCompleteListener { updateTask ->
                                 if (updateTask.isSuccessful) {
                                     val itemsNodeRef = serviceNodeRef.child("items")
+
                                     itemsNodeRef.removeValue().addOnCompleteListener { removeItemTask ->
                                         if (removeItemTask.isSuccessful) {
                                             serviceItemsListForDb.forEach { itemData -> // Use serviceItemsListForDb (List<Item2>) for Firebase
@@ -182,55 +188,86 @@ class AddNewService : ComponentActivity() {
                                             }
                                             Log.d("AddNewService", "Service '$serviceIdFromIntent' and items updated.")
                                             resultIntent.putExtra("updatedServiceId", serviceIdFromIntent)
-                                            setResult(Activity.RESULT_OK, resultIntent)
+                                            setResult(RESULT_OK, resultIntent)
                                         } else {
                                             Log.e("AddNewService", "Failed to clear items for '$serviceIdFromIntent'.", removeItemTask.exception)
                                             resultIntent.putExtra("updatedServiceId", serviceIdFromIntent)
                                             resultIntent.putExtra("warning", "Failed to update service items fully")
-                                            setResult(Activity.RESULT_OK, resultIntent) 
+                                            setResult(RESULT_OK, resultIntent) 
                                         }
                                         finish()
                                     }
                                 } else {
                                     Log.e("AddNewService", "Failed to update service details for '$serviceIdFromIntent'.", updateTask.exception)
-                                    setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "Failed to update service details"))
+                                    setResult(RESULT_CANCELED, Intent().putExtra("error", "Failed to update service details"))
                                     finish()
                                 }
                             }
                         } else {
-                            // ADD NEW MODE
-                            Log.d("AddNewService", "Adding new service for motor: $currentMotorActualId")
-                            val motorServicesRef = database.getReference("services")
-                                .child(currentAuthUserId)
-                                .child(currentMotorActualId)
+                            Log.d("AddNewService", "Adding new service for motor: $currentMotorId")
+                            val firebaseImage = FirebaseImageManager()
+                            val receiptUri = submittedServiceData.receipt?.toUri() ?: Uri.EMPTY
 
-                            val newServiceNodeRef = motorServicesRef.push()
-                            val newServiceKey = newServiceNodeRef.key
+                            Log.d("AddNewService", "imageUri ${imageUri?.toString()}")
 
-                            if (newServiceKey == null) {
-                                Log.e("AddNewService", "Failed to generate new service key from Firebase.")
-                                setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "Failed to generate service key"))
-                                finish()
-                                return@ServiceForm
-                            }
+                            if (receiptUri == null || receiptUri == Uri.EMPTY) {
+                                saveService(submittedServiceData)
+                            } else {
+                                firebaseImage.uploadImage(
+                                    receiptUri,
+                                    motorId = currentMotorId,
+                                    onProgress = {
+                                        print("Uploading receipt...")
+                                    },
+                                    onSuccess = { downloadUrl ->
+                                        print("Success")
+                                        saveService(submittedServiceData)
 
-                            newServiceNodeRef.setValue(serviceDetailsMap).addOnCompleteListener { addTask ->
-                                if (addTask.isSuccessful) {
-                                    serviceItemsListForDb.forEach { itemData -> // Use serviceItemsListForDb (List<Item2>) for Firebase
-                                        newServiceNodeRef.child("items").push().setValue(itemData)
+//                                    val motorServicesRef = database.getReference("services")
+//                                        .child(currentAuthUserId)
+//                                        .child(currentMotorId)
+//
+//                                    val newServiceNodeRef = motorServicesRef.push()
+//                                    val newServiceKey = newServiceNodeRef.key
+//
+//                                    if (newServiceKey == null) {
+//                                        Log.e("AddNewService", "Failed to generate new service key from Firebase.")
+//                                        setResult(RESULT_CANCELED, Intent().putExtra("error", "Failed to generate service key"))
+//                                        finish()
+//                                        return@uploadImage
+//                                    }
+//
+//                                    newServiceNodeRef.setValue(serviceDetailsMap).addOnCompleteListener { addTask ->
+//                                        if (addTask.isSuccessful) {
+//                                            serviceItemsListForDb.forEach { itemData -> // Use serviceItemsListForDb (List<Item2>) for Firebase
+//                                                newServiceNodeRef.child("items").push().setValue(itemData)
+//                                            }
+//                                            newServiceNodeRef.child("receipt").setValue(downloadUrl)
+//
+//                                            Log.d("AddNewService", "New service added with key: $newServiceKey")
+//                                            resultIntent.putExtra("updatedServiceId", newServiceKey)
+//                                            setResult(RESULT_OK, resultIntent)
+//                                        } else {
+//                                            Log.e("AddNewService", "Failed to add new service.", addTask.exception)
+//                                            setResult(RESULT_CANCELED, Intent().putExtra("error", "Failed to add new service"))
+//                                        }
+//                                        finish()
+//                                    }
+                                    },
+                                    onFailure = { e ->
+                                        Log.e("AddNewService", "Receipt upload failed", e)
+                                        setResult(
+                                            RESULT_CANCELED,
+                                            Intent().putExtra("error", "Receipt upload failed")
+                                        )
+                                        finish()
                                     }
-                                    Log.d("AddNewService", "New service added with key: $newServiceKey")
-                                    resultIntent.putExtra("updatedServiceId", newServiceKey)
-                                    setResult(Activity.RESULT_OK, resultIntent)
-                                } else {
-                                    Log.e("AddNewService", "Failed to add new service.", addTask.exception)
-                                    setResult(Activity.RESULT_CANCELED, Intent().putExtra("error", "Failed to add new service"))
-                                }
-                                finish()
+                                )
                             }
                         }
                     }
                 )
+
                 if (showBottomSheet) {
                     ModalBottomSheet(
                         containerColor = Color(230, 239, 252, 255),
@@ -242,13 +279,108 @@ class AddNewService : ComponentActivity() {
                             onAction = {
                                 imageUri = it.toUri()
                                 println("camera bottom sheet dismissed")
-                                println(imageUri.toString())
+                                println(imageUri?.toString())
                             }
                         )
                     }
                 }
             }
         }
+    }
+
+    fun saveService(serviceData: Service3, receiptUrl: String? = null) {
+        val motorFromIntent = intent.getParcelableExtra<Motorcycle>("motor")
+
+        val database = Firebase.database
+        val currentAuthUserId = Firebase.auth.currentUser?.uid
+        val currentMotorId = motorFromIntent?.motorId
+
+        if (currentAuthUserId == null) {
+            Log.e("AddNewService", "User not authenticated.")
+            setResult(RESULT_CANCELED, Intent().putExtra("error", "User not authenticated"))
+            finish()
+            return
+        }
+
+        if (currentMotorId == null) {
+            Log.e("AddNewService", "Motor ID is missing.")
+            setResult(RESULT_CANCELED, Intent().putExtra("error", "Motor ID missing"))
+            finish()
+            return
+        }
+
+        val serviceDetailsMap = mapOf(
+            "date" to serviceData.date,
+            "mileage" to serviceData.mileage,
+            "total" to serviceData.total,
+            "remark" to serviceData.remark,
+            "workshop" to serviceData.workshop,
+            "receipt" to serviceData.receipt.toString()
+        )
+
+        val serviceItemsListForDb = serviceData.items?.values?.toList() ?: emptyList<Item2>()
+
+        val motorServicesRef = database.reference
+            .child("services")
+            .child(currentAuthUserId)
+            .child(currentMotorId)
+
+        val newServiceNodeRef = motorServicesRef.push()
+        val newServiceKey = newServiceNodeRef.key
+
+        if (newServiceKey == null) {
+            Log.e("AddNewService", "Failed to generate service key")
+            setResult(
+                RESULT_CANCELED,
+                Intent().putExtra("error", "Failed to generate service key")
+            )
+            finish()
+            return
+        }
+
+//        val updates = mutableMapOf<String, Any>(
+//            "details" to serviceDetailsMap
+//        )
+
+        val updates = mutableMapOf<String, Any>()
+        updates.putAll(
+            serviceDetailsMap
+                .filterValues { it != null }
+                .mapValues { it.value as Any }
+        )
+
+        // Only add receipt if exists
+        receiptUrl?.let {
+            updates["receipt"] = it
+        }
+
+        val itemsMap = serviceItemsListForDb
+            .mapNotNull { item ->
+                newServiceNodeRef.child("items").push().key?.let { key ->
+                    key to item
+                }
+            }
+            .associate { it }
+
+        updates["items"] = itemsMap
+
+        val resultIntent = Intent()
+
+        newServiceNodeRef.updateChildren(updates)
+            .addOnSuccessListener {
+                Log.d("AddNewService", "Service added: $newServiceKey")
+                resultIntent.putExtra("updatedServiceId", newServiceKey)
+                setResult(RESULT_OK, resultIntent)
+                finish()
+            }
+            .addOnFailureListener { e ->
+                Log.e("AddNewService", "Failed to add service", e)
+                setResult(
+                    RESULT_CANCELED,
+                    Intent().putExtra("error", "Failed to add new service")
+                )
+                finish()
+            }
     }
 }
 
@@ -262,7 +394,7 @@ fun ServiceForm(
     onShowBottomSheetChange: (Boolean) -> Unit,
     onSubmit: (Service3) -> Unit
 ) {
-    val mContext = LocalContext.current
+    var isSubmitting by remember { mutableStateOf(false) }
     val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
     val todayDate = LocalDate.now().format(dateFormatter)
 
@@ -474,6 +606,13 @@ fun ServiceForm(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            PlusIconBox(
+                imageUri = imageUri
+            ) {
+                Log.d("AddNewService", "Camera button clicked")
+                onShowBottomSheetChange(true)
+            }
+
             Text(
                 text = "Remarks",
                 style = MaterialTheme.typography.titleMedium,
@@ -497,6 +636,8 @@ fun ServiceForm(
 
             Button(
                 onClick = {
+                    isSubmitting = true
+
                     val finalItemsForService3 = serviceDescriptions
                         .filter { !(it.name.isNullOrBlank() && it.price.isNullOrBlank()) }
                         .mapIndexedNotNull { index, item ->
@@ -514,15 +655,25 @@ fun ServiceForm(
                             total = totalPrice,
                             remark = remarks,
                             workshop = workshopName,
+                            receipt = imageUri?.toString()
                         )
                     )
                 },
+                enabled = !isSubmitting,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1AD5FF))
             ) {
-                Text("Submit")
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Text("Submit")
+                }
             }
         }
     }
@@ -797,12 +948,30 @@ fun CameraBottomSheet(
         }
     }
 
+    fun copyUriToFile(uri: Uri): File? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val file = createImageFile()
+
+            inputStream?.use { input ->
+                file?.outputStream()?.use { output ->
+                    input.copyTo(output)
+                }
+            }
+            file
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
             imageUri?.let {
                 onAction(it.toString())
             }
         } else {
+            imageUri = null
             photoFile?.delete() 
         }
         onDismiss() 
@@ -810,7 +979,16 @@ fun CameraBottomSheet(
 
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
-            onAction(it.toString())
+            // Copy content URI to a file and get file URI
+            val file = copyUriToFile(it)
+            file?.let { copiedFile ->
+                val fileUri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    copiedFile
+                )
+                onAction(fileUri.toString())
+            }
         }
         onDismiss() 
     }
@@ -819,6 +997,7 @@ fun CameraBottomSheet(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasCameraPermission = isGranted
+
         if (isGranted) {
             photoFile = createImageFile()
             photoFile?.let { file ->
@@ -851,7 +1030,6 @@ fun CameraBottomSheet(
             onDismiss()
         }
     }
-
 
     Column(modifier = Modifier
         .padding(horizontal = 16.dp, vertical = 8.dp)

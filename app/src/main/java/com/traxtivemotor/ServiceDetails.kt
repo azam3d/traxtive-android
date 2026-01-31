@@ -8,7 +8,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,11 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,10 +35,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.database.ktx.database
-import com.google.firebase.ktx.Firebase
+import coil.compose.AsyncImage
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+import com.google.firebase.database.database
 import com.traxtivemotor.ui.theme.TraxtiveTheme
 
 class ServiceDetails : ComponentActivity() {
@@ -56,25 +51,36 @@ class ServiceDetails : ComponentActivity() {
         val serviceIdFromIntent = intent.getStringExtra("serviceId")
 
         setContent {
+            println("serviceFromIntent: $serviceFromIntent")
+            println("serviceIdFromIntent: $serviceIdFromIntent")  // Oe-req1y86MeSGGC_jh
+
+            // -Oe-req1y86MeSGGC_jh     Rrt
+            // -Oe-zf8viJyVoVyaL30c     0oo
+            // -Oe0-zXIc9DLcLlTik7H     Ydyd
+            // -OhTv2rcoNd-vEZM4bbY     Test Gallery
+
             TraxtiveTheme(dynamicColor = false) {
                 var serviceState by remember { mutableStateOf(serviceFromIntent) }
 
-                // This launcher handles the result from AddNewService
                 val editServiceLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
                 ) { result ->
-                    if (result.resultCode == Activity.RESULT_OK) {
+                    if (result.resultCode == RESULT_OK) {
                         val updatedService = result.data?.getParcelableExtra<Service2>("updatedService")
                         if (updatedService != null) {
                             serviceState = updatedService // Update the state to trigger recomposition
                         }
                         // serviceIdFromIntent remains the ID for this detail screen
+
+                        // setResult
+                        val resultIntent = Intent()
+                        resultIntent.putExtra("updatedService", updatedService)
+                        setResult(Activity.RESULT_OK, resultIntent)
                     }
                 }
 
                 // Ensure required IDs are present, otherwise this screen is not valid
                 if (motorIdFromIntent == null || serviceIdFromIntent == null) {
-                    // Handle error, perhaps finish activity or show an error message
                     Text("Error: Missing motor or service ID.")
                     return@TraxtiveTheme
                 }
@@ -83,7 +89,6 @@ class ServiceDetails : ComponentActivity() {
                     Text("Error: User not logged in.")
                     return@TraxtiveTheme
                 }
-
 
                 TopBarNavigation(navigateBack = { finish() })
                 ServiceItems(motorFromIntent, serviceState, currentUserId, motorIdFromIntent, serviceIdFromIntent)
@@ -113,7 +118,6 @@ class ServiceDetails : ComponentActivity() {
                         Text("Edit", fontSize = 16.sp)
                     }
                 }
-//            ChatScreen() // Commented out as per original
             }
         }
     }
@@ -228,6 +232,20 @@ class ServiceDetails : ComponentActivity() {
                 }
             }
 
+            Box(
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .fillMaxWidth()
+                    .shadow(elevation = 12.dp, shape = RoundedCornerShape(16.dp), spotColor = Color.LightGray)
+                    .background(Color.White)
+            ) {
+            AsyncImage(
+                model = service?.receipt,
+                contentDescription = "Receipt",
+                modifier = Modifier.fillMaxWidth()
+            )
+                }
+
             // Remarks
             Box(
                 modifier = Modifier
@@ -253,7 +271,6 @@ class ServiceDetails : ComponentActivity() {
                 }
             }
 
-            // Remove Service Button
             TextButton(
                 modifier = Modifier
                     .padding(top = 8.dp)
@@ -268,23 +285,24 @@ class ServiceDetails : ComponentActivity() {
                 Text("Remove this service")
             }
 
-            // Confirmation Dialog for Remove
-            if (showDialog) { // More idiomatic way to show/hide dialog
+            if (showDialog) {
                 ConfirmationDialog(
                     showDialog = showDialog, // This prop might be redundant if controlling visibility here
                     onDismiss = { showDialog = false },
                     onYesClick = {
+                        println("serviceFromIntent 2: $service")
+                        println("serviceIdFromIntent 2: $serviceId")
+
                         val database = Firebase.database
                         database.reference.child("services").child(userId).child(motorId).child(serviceId).removeValue()
                             .addOnCompleteListener { task ->
                                 if (task.isSuccessful) {
                                     // Optionally, set a result for a calling activity if ServiceDetails itself was launched for result
-                                    (mContext as? Activity)?.setResult(Activity.RESULT_OK) // Indicate success
-                                    (mContext as? Activity)?.finish() // Close ServiceDetails
+                                    (mContext as? Activity)?.setResult(RESULT_OK)
+                                    (mContext as? Activity)?.finish()
                                 } else {
-                                    // Handle error
                                     println("Error removing service: ${task.exception?.message}")
-                                    showDialog = false // Still dismiss dialog
+                                    showDialog = false
                                 }
                             }
                     },
@@ -298,99 +316,6 @@ class ServiceDetails : ComponentActivity() {
                     dismissText = "Cancel"
                 )
             }
-        }
-    }
-
-    // --- ChatScreen and related composables (unchanged as per original structure) ---
-    data class ChatMessage(
-        val message: String,
-        val isFromUser: Boolean
-    )
-
-    @Composable
-    fun ChatScreen() {
-        var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
-        var currentMessage by remember { mutableStateOf("") }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(messages) { message ->
-                    ChatBubble(message)
-                }
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextField(
-                    value = currentMessage,
-                    onValueChange = { currentMessage = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 8.dp),
-                    placeholder = { Text("Type a message") }
-                )
-                IconButton(
-                    onClick = {
-                        if (currentMessage.isNotBlank()) {
-                            messages = messages + ChatMessage(currentMessage, true)
-                            currentMessage = ""
-                        }
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send message"
-                    )
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun ChatBubble(message: ChatMessage) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = if (message.isFromUser)
-                Arrangement.End else Arrangement.Start
-        ) {
-            Surface(
-                color = if (message.isFromUser)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.secondary,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.widthIn(max = 300.dp)
-            ) {
-                Text(
-                    text = message.message,
-                    modifier = Modifier.padding(16.dp),
-                    color = if (message.isFromUser)
-                        MaterialTheme.colorScheme.onPrimary
-                    else
-                        MaterialTheme.colorScheme.onSecondary
-                )
-            }
-        }
-    }
-
-    @Preview(showBackground = true)
-    @Composable
-    fun LoginPreview() { // Renamed from ServiceDetailsPreview to avoid conflict if that exists
-        TraxtiveTheme {
-            // Provide mock data for preview
-            ChatScreen() // Original preview was ChatScreen
         }
     }
 }
